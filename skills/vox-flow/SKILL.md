@@ -44,6 +44,27 @@ Flow는 prompt agent의 확장이므로, **공통 음성 UX 규칙은 `vox-agent
 
 사용자가 시각화만 요청하면 1단계만. "노드로 변환해줘"면 1→2단계. "리뷰해줘"면 3단계.
 
+## What the API auto-fixes vs what you must get right
+
+api-server 가 silent autofix 로 자동 채우는 항목은 **신경 쓰지 않아도 된다.** 토큰을 아끼고 사용자 경험 (UX) 과 분기 의도에 집중하라.
+
+**Auto-fixed (걱정 X)**:
+- edge 의 `type: "custom"` 미명시 → 자동 채움
+- edge 의 `position` (sourcePosition / targetPosition) 누락 → 기본값 채움
+- `api`/`sendSms`/`function`/`tool` 노드의 success transition 누락 + 그 success edge 가 sourceHandle 없는 orphan 인 경우 → 합성 transition (`tr_<src>_success`, `isSkipUserResponse: true`) 추가 후 edge 자동 wire
+- non-fallback transition 이 정확히 1개일 때 sourceHandle 비어있는 edge → 그 transition 으로 자동 연결
+- `extraction` 노드의 transition 미명시 → `isSkipUserResponse: true` skip transition 자동 추가
+- `transferCall` / `transferAgent` 노드의 fallback transition 빈 condition → canonical text ("요청 실패 시") 자동 채움
+
+**You must get right (autofix X — 거부됨 또는 잘못 작동)**:
+- top-level `type: "flow"` (누락 시 silent 단일 프롬프트 저장)
+- `apiConfiguration.url`, `transferConfiguration.transferTo`, sendSms 본문 등 도메인 값
+- node 간 분기 의도 (logicalTransitions / condition 노드 분기 변수 매핑)
+- `api` 노드 chain 패턴 — `api → bridge(skip) → api` 는 `API_CHAIN_RACE` 로 거부되니 다음 api 의 `staticSentence` 에 합치거나 `condition` 노드로 대체
+- sendSms fail 분기는 성공 분기와 다른 wrap-up 으로 보내고 사용자에게 SMS 실패를 고지 (자세한 패턴은 `execution-node-markdown.md`)
+- 구체적 일자/시간을 한 노드에서 묶어 받기 (turn 절약)
+- 마무리 발화 + 작별 인사 (rubric 평가 시 필수)
+
 ## Node Type 요약
 
 아래 표는 설계 대화를 위한 개념 요약이다. 실제 `flow_data` JSON 을 작성할 때는 이 표나 로컬 reference 를 schema source 로 쓰지 말고, 먼저 MCP `get_schema(namespace='flow-schema', schema_type='flow-data')` 를 호출해 현재 node type, field, enum, required 여부를 확인한다.
