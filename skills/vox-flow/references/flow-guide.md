@@ -32,7 +32,7 @@ FlowData {
 }
 ```
 
-전체 schema 는 **snake_case**. 클라이언트가 unknown 필드를 보내면 서버는 **validation error 없이 silently drop** 한다 (`extra="ignore"`) — 보낸 필드가 응답에 안 보이면 schema 어긋남이다. 응답을 그대로 다시 받아 비교하는 round-trip 검증이 필수.
+전체 schema 는 **camelCase**. 클라이언트가 unknown 필드를 보내면 서버는 **validation error 없이 silently drop** 한다 (`extra="allow"` / `extra="ignore"` 모드 혼재) — 보낸 필드가 응답에 안 보이면 schema 어긋남이다. 응답을 그대로 다시 받아 비교하는 round-trip 검증이 필수.
 
 기본 schema 의 가장 작은 합법 flow → [default-flow-data.json](default-flow-data.json) 참조.
 
@@ -41,81 +41,84 @@ FlowData {
 ```
 FlowNode {
   id: string                  // flow 안에서 unique. 1..64 chars.
-  type: NodeType              // schema endpoint 의 enum 기준
+  type: NodeType              // begin | conversation | extraction | condition | api | tool | sendSms | transferCall | transferAgent | endCall | knowledge | function | note
   data: NodeData              // type 별 schema 는 schema endpoint 기준
+  position: { x: number, y: number }   // 픽셀 좌표 — 누락 시 NODE_POSITION_REQUIRED 로 reject
 }
 ```
 
-- 노드 사이의 분기는 **여기 안에 없음.** 분기는 전부 edge.condition 로 승격됐다 (구 `transitions[]` / `logicalTransitions[]` 모델 폐지).
-- `position`, `viewport`, edge id/handle 같은 editor/legacy 메타는 schema endpoint 가 노출할 때만 보낸다. 기억으로 추가하면 silently drop 될 수 있다.
-- 모든 노드의 `data` 에는 공통 필드 `name?` (에디터 라벨) 과 `global?: GlobalConfig` (값이 있으면 global node — 어디서든 진입) 이 있다.
+- 모든 노드의 `data` 에는 공통 필드 `name?` (에디터 라벨), `globalNodeSettings?: {isGlobalNode, transitionCondition?}`, 그리고 `transitions[]` (이 노드의 outgoing 분기 list) 가 있다.
+- 분기 라우팅 정보는 **노드 내부의 `transitions[]` / `logicalTransitions[]` 에 모두 있다.** edge 는 그걸 가리키는 wiring 일 뿐이다.
 
 ### FlowEdge
 
 ```
 FlowEdge {
+  id: string                  // edge 식별자
   source: string              // 출발 node.id
   target: string              // 도착 node.id
-  condition: EdgeCondition    // discriminated union (아래)
-  skip_user_response?: bool   // 기본 false
-  is_global?: bool            // 기본 false
+  type: "custom"              // 항상 "custom" — 생략 시 backend 가 채우지만 명시 권장
+  sourceHandle: string        // source 노드의 data.transitions[].id 또는 data.logicalTransitions[].id 와 일치해야 한다
+  targetHandle?: string|null  // 일반적으로 null
 }
 ```
 
-- edge 에는 **id 가 없다**. flow 내 unique 키는 `(source, target, condition, skip_user_response, is_global)` 5-tuple.
-- `sourceHandle` / `targetHandle` / `type:"custom"` / `animated` 같은 필드는 없다 (구 v2 vox.ai web editor 모델). 보내도 drop.
-- `is_global=true` 인 edge 는 global node 의 진입선 — 보통 자동 관리.
+- **edge 자체에는 `condition` 객체가 없다.** 분기 라우팅 정보는 source 노드의 transition 안에 있다.
+- `sourceHandle` 가 source 노드 transition 의 id 와 안 맞으면 edge 가 dangling 상태로 저장되어 runtime 에서 무시된다.
 
-### EdgeCondition (분기 본진)
+### Transition (노드 내부 분기 단위)
 
-세 종류의 discriminated union. discriminator 키는 `type`.
+ordinary transition (대화 컨텍스트 또는 generic 분기):
 
-**(1) AI condition** — LLM 이 자연어 프롬프트로 판단.
-
-```
-{ "type": "ai", "prompt": "고객이 예약 의사를 밝힌 경우" }
-```
-
-전환 조건을 자연어로 기술. `{{variable}}` 참조 가능. conversation 노드의 out-edge 에서 가장 흔히 쓰이는 형태.
-
-**(2) Logic condition** — 변수 값 기반 결정적.
-
-```
+```jsonc
 {
-  "type": "logic",
-  "op": "and" | "or",
-  "conditions": [SingleCondition, ...]   // 1 개 이상
+  "id": "tr_consent_yes",
+  "condition": "고객이 조사에 동의하거나 응하겠다고 의사를 표현한 경우",
+  "isSkipUserResponse": false,   // optional
+  "isFallback": false            // optional
 }
 ```
 
-`SingleCondition`:
+- `condition` — **항상 의미 있는 한국어 문장.** 빈 문자열, 공백, null 금지. 에디터 라벨이자 LLM 의 라우팅 근거.
+- `isFallback: true` — deterministic 실패/default 경로. 캐노니컬 한국어 문구 (생략 금지):
+  - `api`, `function`, `tool`, `sendSms` → `condition: "요청 실패 시"`
+  - `transferAgent`, `transferCall` → `condition: "에러 발생 시"`
+  - 그 외 (condition 노드의 fallback 등) → 의미 있는 한국어 문장
+- `isSkipUserResponse: true` — 유저 응답 없이 자동 진행. UI 가 "유저 응답 건너뛰기" 라벨로 렌더하므로 `condition` 생략 가능.
 
-```
+LogicalTransition (변수 기반 deterministic 분기 — 주로 `condition` / `api` 노드):
+
+```jsonc
 {
-  "variable": "order_status",            // extraction / api 노드에서 만든 변수 이름
-  "operator": <ConditionOperator>,
-  "value": "delivered"                   // exists / does_not_exist 면 생략 가능
+  "id": "lt_promoter",
+  "condition": {
+    "logicalOperator": "and",
+    "conditions": [
+      {
+        "variable": "nps_score",
+        "operator": "greater_than_or_equal",
+        "value": 9
+      }
+    ]
+  },
+  "isSkipUserResponse": true
 }
 ```
 
-`ConditionOperator` 의 현재 enum 과 `value` 필요 여부는 schema endpoint 결과를 따른다. 로컬 문서에 있는 과거 operator 목록을 기억으로 쓰지 않는다.
+- `condition.conditions[].operator` 는 schema endpoint 의 enum 을 따른다 (equals, not_equals, contains, does_not_contain, greater_than, greater_than_or_equal, less_than, less_than_or_equal, exists, does_not_exist).
+- `exists` / `does_not_exist` 만 `value` 생략 가능.
+- `condition` 노드는 `transitions[]` 에 fallback 1 개 + `logicalTransitions[]` 에 logic 분기 N 개로 구성한다.
 
-condition 노드의 out-edge 에서 주로 쓰임. conversation 노드 out-edge 에도 쓸 수 있음.
+### Per-노드 transition 패턴
 
-**(3) Fallback condition** — 같은 source 노드의 다른 모든 condition 이 매치 안 될 때 default.
-
-```
-{ "type": "fallback" }
-```
-
-api / tool / begin / condition 등 분기에서 default path 로 자주 사용. 같은 source 노드에 fallback 은 보통 하나만.
-
-### Per-edge 패턴 정리
-
-- **conversation → next**: `condition: {type:"ai", prompt:"…"}` (대화 컨텍스트 기반)
-- **condition → branch**: `condition: {type:"logic", op:"and"|"or", conditions:[…]}` 또는 logic 1 개 + fallback 1 개
-- **api / tool → success / failure**: 성공 path 는 `{type:"ai"}` 또는 `{type:"logic"}`, 실패 path 는 `{type:"fallback"}`
-- **begin → first node**: 보통 `{type:"fallback"}` (begin 에서 분기 X)
+- **begin**: `transitions[]` 에 1 개 (보통 `{ id: "tr_begin_next" }`). condition 생략 가능 — begin 은 분기 안 함.
+- **conversation / knowledge**: `transitions[]` 에 자연어 condition 여러 개 (대화 흐름 분기). LLM 이 어떤 transition 으로 갈지 결정한다.
+- **extraction**: `transitions[]` 에 `isSkipUserResponse: true` 1 개 필수 (없으면 `MISSING_SKIP_USER_RESPONSE_TRANSITION`).
+- **condition**: `logicalTransitions[]` 에 logic 분기 + `transitions[]` 에 fallback 1 개.
+- **api / tool / function**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` 1 개 + `logicalTransitions[]` (응답 변수 기반) 또는 `transitions[]` 의 다른 자연어 분기.
+- **sendSms**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` + 성공 path `transitions[]` 1 개.
+- **transferCall / transferAgent**: `transitions[]` 에 `isFallback: true, condition: "에러 발생 시"` 1 개 필수 (없으면 `MISSING_FALLBACK_TRANSITION`).
+- **endCall**: `transitions[]` 비어 있어도 됨 (terminal).
 
 ## 변수 흐름
 
@@ -127,19 +130,20 @@ flow 에서 변수는 노드 간 데이터를 전달하는 핵심 메커니즘.
 |---|---|---|
 | system | (자동) | `{{current_time}}`, `{{call_from}}`, `{{call_to}}` 등 플랫폼 제공 |
 | agent 설정 | (사전 주입) | `{{customer_name}}` 등 통화 시작 전 주입 (`agent.data.presetDynamicVariables`) |
-| extraction | extraction 노드 | LLM 이 대화에서 추출 → flow 변수로 저장. 변수 정의는 `extraction_configuration.variables[]` 의 `variable_name` / `variable_type` / `variable_description` |
-| api response | api 노드 | JSONPath 로 API 응답에서 추출. 매핑은 `response_variables[]` 의 `variable_name` / `json_path` |
+| extraction | extraction 노드 | LLM 이 대화에서 추출 → flow 변수로 저장. 변수 정의는 `data.extractionConfiguration.variables[]` 의 `variableName` / `variableType` / `variableDescription` |
+| api response | api 노드 | JSONPath 로 API 응답에서 추출. 매핑은 `data.responseVariables[]` 의 `variableName` / `jsonPath` |
 
 ### 변수 소비
 
 | 위치 | 사용법 |
 |---|---|
-| conversation `data.message.content` | `{{customer_name}}님의 주문을 확인합니다` |
-| api `data.api_configuration.url` / `body` | `https://api.example.com/orders/{{order_id}}` |
-| edge `condition.prompt` (ai) / `conditions[].variable` (logic) | `{{is_verified}} 가 true 인 경우` 등 |
-| extraction `data.extraction_configuration.extraction_prompt` | `{{customer_name}} 의 주문번호를 추출하세요` |
-| transferCall `data.warm_transfer_prompt` | `{{customer_name}} 님이 환불 요청 중입니다` |
-| sendSms `data.prompt` (dynamic) / `data.static_sentence` (static) | `{{customer_name}}님 예약이 확정되었습니다` |
+| conversation `data.staticSentence` (static) / `data.firstMessage` + `data.prompt` (dynamic) | `{{customer_name}}님의 주문을 확인합니다` |
+| api `data.apiConfiguration.url` / `body` | `https://api.example.com/orders/{{order_id}}` |
+| transition `condition` (자연어) | `{{is_verified}} 가 true 인 경우` 등 |
+| logicalTransition `condition.conditions[].variable` | `nps_score` (변수 이름만) |
+| extraction `data.extractionConfiguration.extractionPrompt` | `{{customer_name}} 의 주문번호를 추출하세요` |
+| transferCall `data.warmTransferPrompt` | `{{customer_name}} 님이 환불 요청 중입니다` |
+| sendSms `data.staticSentence` (static) / `data.prompt` (dynamic) | `{{customer_name}}님 예약이 확정되었습니다` |
 
 ### 일반적인 변수 흐름 패턴
 
@@ -154,31 +158,33 @@ conversation → extraction → condition → api → conversation
 
 ### 1. 노드 수 최소화
 
-불필요한 분할은 edge 관리를 복잡하게 하고 유지보수 비용이 증가한다. 한 conversation 노드가 한 목적을 처리하되, 관련된 확인/재질문은 같은 노드의 `loop_condition` 으로 처리한다.
+불필요한 분할은 edge 관리를 복잡하게 하고 유지보수 비용이 증가한다. 한 conversation 노드가 한 목적을 처리하되, 관련된 확인/재질문은 같은 노드의 `loopCondition` 또는 prompt 안의 행동 규칙으로 처리한다.
 
 ### 2. 한 노드 = 한 목적
 
-각 노드가 하나의 명확한 목적을 가져야 한다. "인사 + 본인확인 + 안내" 를 하나에 넣으면 전환 조건이 복잡해지고 디버깅이 어려워진다.
+각 노드가 하나의 명확한 목적을 가져야 한다. "인사 + 본인확인 + 안내" 를 하나에 넣으면 transition condition 이 복잡해지고 디버깅이 어려워진다.
 
 ### 3. Global 노드 활용
 
-"통화 종료 요청", "상담원 연결 요청" 같이 어디서든 발생할 수 있는 시나리오는 global node 로 설정한다. 모든 노드에 개별 전환을 추가하는 것보다 유지보수가 쉽다. 활성화 = `data.global` 에 `{enter_condition: "…"}` 를 넣는다 (값이 없으면 global 아님).
+"통화 종료 요청", "상담원 연결 요청" 같이 어디서든 발생할 수 있는 시나리오는 global node 로 설정한다. 모든 노드에 개별 transition 을 추가하는 것보다 유지보수가 쉽다. 활성화 = `data.globalNodeSettings: { isGlobalNode: true, transitionCondition: "…" }`.
 
 ### 4. Fallback 경로 확보
 
-모든 분기 source 노드에 fallback edge 가 있어야 한다:
-- condition 노드: 모든 logic edge 외에 `{type:"fallback"}` edge 1 개.
-- api / tool 노드: 성공 path 외에 `{type:"fallback"}` edge 1 개 (호출 실패 시 진행).
-- conversation 노드: 예상 외 응답 path. 보통 `{type:"ai", prompt:"고객이 거절했거나 통화를 끊으려는 경우"}` 식.
-- begin 노드: 단일 fallback edge 1 개 (분기 없음).
+다음 노드는 fallback transition 이 필수다 (없으면 백엔드가 reject):
+- **transferCall / transferAgent**: `isFallback: true` 1 개. condition `"에러 발생 시"`.
+- **api / function / tool / sendSms**: `isFallback: true` 1 개. condition `"요청 실패 시"`.
+- **condition**: `logicalTransitions[]` 외에 `transitions[]` 에 fallback 1 개. condition 한국어 문장 (예: `"위 조건이 모두 거짓일 때"`).
+
+다음 노드는 fallback 권장 (없어도 backend 가 강제하지는 않음):
+- **conversation**: 예상 외 응답을 처리할 transition (예: `"고객이 거절했거나 통화를 끊으려는 경우"`).
 
 ### 5. Extraction 전에 Conversation
 
-extraction 노드는 기존 대화 컨텍스트에서 추출한다. 필요한 정보가 대화에 아직 없으면 extraction 이 빈 값을 반환한다. 반드시 conversation 노드에서 정보를 수집한 후 extraction 을 배치한다. extraction 은 `data.is_skip_user_response: true` 가 기본이라 사용자 응답을 기다리지 않는다.
+extraction 노드는 기존 대화 컨텍스트에서 추출한다. 필요한 정보가 대화에 아직 없으면 extraction 이 빈 값을 반환한다. 반드시 conversation 노드에서 정보를 수집한 후 extraction 을 배치한다. extraction 은 `data.isSkipUserResponse: true` 가 기본이라 사용자 응답을 기다리지 않으며, transition 에 `isSkipUserResponse: true` 가 1 개 이상 필수다.
 
 ### 6. Condition 노드는 logic 분기 전용
 
-condition 노드의 `data` 에는 `name` / `global` 외 어떤 분기 필드도 들어가지 않는다. 분기는 100% out-edge 에 위치 — `condition: {type:"logic", op:..., conditions:[...]}` edge 여러 개 + 마지막에 `{type:"fallback"}` edge 1 개.
+condition 노드의 `data` 에는 `name` / `globalNodeSettings` / `transitions` / `logicalTransitions` 외에 분기 필드를 넣지 않는다. 분기는 `logicalTransitions[]` (logic) + `transitions[]` (fallback 1 개).
 
 ## 설계 패턴
 
@@ -189,19 +195,18 @@ graph LR
   begin --> 인사 --> 본인확인 --> 안내 --> endCall
 ```
 
-분기 없이 순서대로 진행. 각 edge 는 보통 `{type:"ai", prompt:"…"}` 또는 conversation 사이라면 default path 의 `{type:"fallback"}`.
+분기 없이 순서대로 진행. 각 conversation transition 에 의미 있는 condition 을 적되, 다음 단계로 넘어가는 단일 transition 이면 condition 은 `"고객이 응답을 마친 경우"` 같이 자연스럽게 작성.
 
 ### Branching (분기)
 
 ```mermaid
 graph LR
-  begin --> 의도파악 --> condition
-  condition --> 시나리오A --> endCall
-  condition --> 시나리오B --> endCall
-  condition --> 시나리오C --> endCall
+  begin --> 의도파악 --> 시나리오A
+  의도파악 --> 시나리오B
+  의도파악 --> 시나리오C
 ```
 
-고객 의도에 따라 다른 시나리오로 분기. condition 노드 또는 conversation 의 out-edge 에서 ai-condition 으로 분기.
+고객 의도에 따라 다른 시나리오로 분기. conversation 노드의 `transitions[]` 에 자연어 condition 여러 개 → 각각 다른 target 노드로 edge.
 
 ### Data Collection (데이터 수집)
 
@@ -210,45 +215,48 @@ graph LR
   begin --> 정보수집 --> extraction --> condition --> api --> 결과안내 --> endCall
 ```
 
-고객 정보 수집 → 변수 추출 → 조건 확인 → 외부 조회 → 결과 안내.
+고객 정보 수집 → 변수 추출 → 조건 확인 → 외부 조회 → 결과 안내. condition 노드는 `logicalTransitions[]` 로 deterministic 분기.
 
 ### Transfer Fallback (전환 + 복구)
 
 ```mermaid
 graph LR
   begin --> 대화 --> transferCall
-  transferCall -->|성공| endCall
-  transferCall -->|실패| 안내 --> endCall
+  transferCall --> 안내실패 --> endCall
 ```
 
-통화 전환 실패 시 fallback edge 로 안내 후 종료.
+transferCall 노드는 `isFallback: true, condition: "에러 발생 시"` transition 이 필수다 (성공 path 는 통화 자체가 다른 측으로 넘어가므로 명시 안 함).
 
 ## API / MCP 로 Flow 만들고 수정
 
-vox.ai MCP 와 v3 REST 모두 동일한 `flow_data` schema 를 받는다. **수정은 전체 교체 (full replacement)** — 기존 nodes / edges 일부만 patch 하는 모드는 없다. PATCH 시에도 nodes / edges 전체를 다시 보낸다.
+vox.ai MCP 와 v3 REST 모두 동일한 `flow_data` schema 를 받는다. **수정은 전체 교체 (full replacement)** — 기존 nodes / edges 일부만 patch 하는 모드는 v3 단일 endpoint 에 없다. PATCH 시에도 nodes / edges 전체를 다시 보낸다.
 
 작업 순서:
 
 1. `get_schema(namespace="flow-schema", schema_type="flow-data")` 로 현재 flow schema 를 확인한다.
 2. agent `data` 를 보낼 경우 `get_schema(namespace="agent-schema", schema_type="agent-data-create")` 또는 `agent-data-update` 를 확인한다.
-3. `create_agent(type="flow", data=..., flow_data=...)` 또는 `update_agent(flow_data=...)` 를 호출한다.
-4. `get_agent` 로 다시 읽어 unknown field drop, enum mismatch, 누락 edge 를 확인한다.
+3. `validate_flow_data` 로 dry-run 검증 (자동 fix 미리보기 + blocking error 확인).
+4. `create_agent(name=..., type="flow", data=..., flow_data=...)` 또는 `update_agent(flow_data=...)` 호출.
+5. `get_agent` 로 다시 읽어 unknown field drop, enum mismatch, 누락 edge 를 확인한다.
 
 ### 생성 (REST 또는 MCP)
 
 REST:
-```
+```jsonc
 POST /v3/agents
 {
   "name": "My Flow Agent",
-  "type": "flow",
-  "data": { ... },          // agent.data (vox-agents/references/default-agent-data.json)
-  "flow_data": { "nodes": [...], "edges": [...] }
+  "type": "flow",                 // ← 누락하면 single_prompt 로 떨어져 flow_data 가 null 로 저장됨
+  "data": { ... },                // agent.data (vox-agents/references/default-agent-data.json 참고)
+  "flow_data": {
+    "nodes": [...],
+    "edges": [...]
+  }
 }
 ```
 
 vox.ai MCP (Claude Code 등 client 에서 호출):
-```
+```text
 mcp__vox__create_agent(
   name="My Flow Agent",
   type="flow",
@@ -260,7 +268,7 @@ mcp__vox__create_agent(
 ### 수정
 
 REST:
-```
+```jsonc
 PATCH /v3/agents/{id}
 {
   "flow_data": { "nodes": [...], "edges": [...] }
@@ -268,7 +276,7 @@ PATCH /v3/agents/{id}
 ```
 
 vox.ai MCP:
-```
+```text
 mcp__vox__update_agent(
   agent_id="<UUID>",
   flow_data={ "nodes": [...], "edges": [...] }
@@ -280,15 +288,23 @@ mcp__vox__update_agent(
 ### 조회
 
 REST:
-```
+```text
 GET /v3/agents/{id}    # 응답에 flow_data 포함
 ```
 
 vox.ai MCP:
-```
+```text
 mcp__vox__get_agent(agent_id="<UUID>")   # 응답에 flow_data 포함
 ```
 
 ### Round-trip 검증 (필수)
 
 `flow_data` 는 unknown 필드를 silent drop 할 수 있다. 전송 후 항상 응답을 다시 비교해서 의도한 노드 / 엣지 / 필드가 그대로 들어갔는지 확인한다. 보낸 필드가 응답에 없으면 로컬 문서를 고치려 들기 전에 schema endpoint 결과와 payload 를 다시 대조한다.
+
+특히 다음을 점검:
+- `type: "flow"` 가 top-level 에 있는가? (없으면 `single_prompt` 로 저장되어 flow_data 가 null)
+- 모든 node 에 `position: {x, y}` 가 있는가? (없으면 `NODE_POSITION_REQUIRED`)
+- 모든 edge 의 `sourceHandle` 가 source 노드의 transition.id 와 일치하는가? (안 맞으면 dangling)
+- extraction 노드에 `isSkipUserResponse: true` 인 transition 이 1 개 이상 있는가?
+- transferCall / transferAgent 노드에 `isFallback: true` 인 transition 이 1 개 이상 있는가?
+- 모든 transition.condition 이 의미 있는 한국어 문장인가? (빈 문자열 금지, fallback 은 캐노니컬 문구)

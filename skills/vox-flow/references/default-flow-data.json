@@ -1,55 +1,86 @@
 {
-  "_comment": "v3 flow_data 의 최소 예시 (begin -> conversation -> endCall). schema source-of-truth 는 MCP get_schema(namespace='flow-schema', schema_type='flow-data') 결과다. 노드 사이의 분기는 노드 내부가 아니라 edge.condition 에 위치한다. position/viewport/edge.id/sourceHandle 같은 editor/legacy 메타는 schema endpoint 가 노출할 때만 보낸다.",
+  "_comment": "v3 flow agent 의 가장 작은 합법 create_agent payload. 'type=flow' top-level 누락 시 백엔드는 single_prompt 로 떨어뜨려 flow_data 가 null 로 저장된다. 'data' 의 default 값은 vox-agents/references/default-agent-data.json 을 참고하되, 같이 보내지 않으면 백엔드가 schema default 로 채운다. flow 의 begin 노드 안에 있는 'firstLineType' 의 enum (aiFirst|userFirst) 과 agent.data.prompt 의 'firstLineType' enum (aiFirstDynamic|aiFirstStatic|userFirst) 은 다른 surface 다 — 헷갈려서 begin 의 'aiFirst' 를 prompt 쪽에 넣으면 VALIDATION_ERROR. 분기는 노드 내부의 data.transitions[]/logicalTransitions[] 와 edge.sourceHandle 로 표현된다. 실제 schema 는 항상 MCP get_schema(namespace='flow-schema', schema_type='flow-data') 결과를 따른다.",
 
-  "nodes": [
-    {
-      "id": "begin-1",
-      "type": "begin",
-      "data": {
-        "name": "Begin",
-        "first_line_type": "aiFirst",
-        "pause_before_speaking_seconds": 0
-      }
+  "name": "<descriptive name>",
+  "type": "flow",
+
+  "data": {
+    "prompt": {
+      "prompt": "",
+      "firstLine": "",
+      "firstLineType": "aiFirstDynamic",
+      "pauseBeforeSpeakingSeconds": 0,
+      "isFirstMessageInterruptible": true
     },
-    {
-      "id": "conversation-1",
-      "type": "conversation",
-      "data": {
-        "name": "Greeting",
-        "message": {
-          "mode": "generated",
-          "content": "안녕하세요. 무엇을 도와드릴까요?"
+    "stt": { "languages": ["ko"], "speed": "high" },
+    "llm": { "model": "z-ai/glm-4.7", "temperature": 0.4 },
+    "voice": {
+      "id": "69c18e1d-fab0-4747-b9da-58617cd8b9e4",
+      "provider": "cartesia",
+      "model": "sonic-3-latest",
+      "speed": 1.0,
+      "language": "ko-KR"
+    }
+  },
+
+  "flow_data": {
+    "nodes": [
+      {
+        "id": "begin",
+        "type": "begin",
+        "data": {
+          "name": "시작",
+          "firstLineType": "aiFirst",
+          "pauseBeforeSpeakingSeconds": 0,
+          "transitions": [
+            { "id": "tr_begin_next" }
+          ]
         },
-        "is_skip_user_response": false,
-        "is_allow_interruption": true
+        "position": { "x": 0, "y": 0 }
+      },
+      {
+        "id": "greet",
+        "type": "conversation",
+        "data": {
+          "name": "Greeting",
+          "promptType": "static",
+          "staticSentence": "안녕하세요. 무엇을 도와드릴까요?",
+          "transitions": [
+            {
+              "id": "tr_greet_done",
+              "condition": "고객이 인사에 응답했거나 용건을 말한 경우"
+            }
+          ]
+        },
+        "position": { "x": 320, "y": 0 }
+      },
+      {
+        "id": "end_call",
+        "type": "endCall",
+        "data": {
+          "name": "End",
+          "promptType": "static",
+          "staticSentence": "감사합니다. 통화를 종료합니다."
+        },
+        "position": { "x": 640, "y": 0 }
       }
-    },
-    {
-      "id": "endcall-1",
-      "type": "endCall",
-      "data": {
-        "name": "End",
-        "message": {
-          "mode": "static",
-          "content": "감사합니다. 통화를 종료합니다."
-        }
-      }
-    }
-  ],
+    ],
 
-  "edges": [
-    {
-      "source": "begin-1",
-      "target": "conversation-1",
-      "condition": { "type": "fallback" }
-    },
-    {
-      "source": "conversation-1",
-      "target": "endcall-1",
-      "condition": {
-        "type": "ai",
-        "prompt": "고객이 더 이상 도움이 필요 없다고 한 경우, 또는 안내가 끝난 경우"
+    "edges": [
+      {
+        "id": "e_begin_greet",
+        "source": "begin",
+        "target": "greet",
+        "type": "custom",
+        "sourceHandle": "tr_begin_next"
+      },
+      {
+        "id": "e_greet_end",
+        "source": "greet",
+        "target": "end_call",
+        "type": "custom",
+        "sourceHandle": "tr_greet_done"
       }
-    }
-  ]
+    ]
+  }
 }

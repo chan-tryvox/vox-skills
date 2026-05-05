@@ -78,6 +78,10 @@ Flow는 prompt agent의 확장이므로, **공통 음성 UX 규칙은 `vox-agent
 
 1. **공통 규칙 먼저** — flow에서도 실패 원인의 대부분은 음성 UX 위반(장문 발화, 부정확한 사실)이므로, `vox-agents`의 voice-ai-playbook 규칙(사실성 우선, 트레이드오프, 런타임 vs 개발 산출물 구분)이 flow에도 동일하게 적용된다.
 2. node type, field, enum, required 여부를 추측하지 않는다 — `flow_data` 작성 직전에 `get_schema(namespace='flow-schema', schema_type='flow-data')` 를 호출하고 그 결과를 기준으로 JSON 을 만든다.
+
+> **Top-level `type: "flow"` 누락 = silent 실패.** `create_agent` 호출 시 top-level 에 `type: "flow"` 가 없으면 백엔드는 default `single_prompt` 로 저장하고 `flow_data` 는 null 로 떨어진다. JSON 응답이 200 이어도 round-trip 시 flow_data 가 비어 있다면 가장 먼저 `type` 누락을 의심한다.
+
+
 3. deprecated node(`function`, `knowledge`)는 신규 flow에 사용하지 않는다 — 대시보드에서 더 이상 추가할 수 없고, 향후 런타임 지원이 제거될 수 있다.
 4. node 수는 최소화 — 불필요한 분할은 edge 관리를 복잡하게 하고 유지보수 비용이 증가한다.
 5. 변수 이름은 snake_case, 의미가 명확한 이름 사용 — condition node와 변수 렌더러가 snake_case를 전제로 동작하며, 모호한 이름(val1, temp)은 노드 간 전달 시 혼동을 일으킨다.
@@ -99,10 +103,13 @@ Flow는 prompt agent의 확장이므로, **공통 음성 UX 규칙은 `vox-agent
 
 ### MCP Tools (vox.ai)
 - `create_agent` — flow 에이전트 생성 (`type: "flow"`)
-- `update_agent` — 에이전트 설정 수정
+- `update_agent` — 에이전트 설정 수정 (전체 `flow_data` 교체)
+- `update_agent_partial(agent_id, operations[])` — flow_data 부분 수정. 각 operation 은 `{op: addNode|removeNode|updateNode|addEdge|removeEdge|updateEdge|cleanStaleEdges, ...}` shape. atomic 적용 + 전체 graph validation. 토큰 절감용 — 노드 1~2 개만 바꿀 때 사용.
 - `get_agent` — 기존 에이전트 설정 확인 (flow_data 포함)
 - `list_agents` — 에이전트 목록
-- `get_schema(namespace='flow-schema', schema_type='flow-data')` — flow_data JSON Schema (node·edge·condition `$defs` 포함). `create_agent` / `update_agent` 의 `flow_data` 구성 전에 호출.
+- `validate_flow_data(flow_data)` — dry-run 검증. blocking error 미리 확인.
+- `autofix_flow_data(flow_data, apply_fixes=false|true)` — safe deterministic fix 자동 적용. 누락된 position, edge type, extraction skip transition, transferCall/transferAgent fallback transition, blank fallback condition 을 채운다. 도메인 값 (apiConfiguration.url, transferConfiguration.transferTo) 은 자동 fix 안 됨 — `remaining_errors` 로 surface.
+- `get_schema(namespace='flow-schema', schema_type='flow-data', detail='standard'|'minimal')` — flow_data JSON Schema. `detail='minimal'` 은 description / title / examples 를 제거한 lean payload (≈40-50% token savings) — schema shape 가 익숙할 때만 사용. `create_agent` / `update_agent` / `update_agent_partial` 의 `flow_data` 구성 전에 호출.
 
 ### Docs (vox.ai docs / vox-docs)
 - `docs/build/flow/overview` — 플로우 에이전트 개요

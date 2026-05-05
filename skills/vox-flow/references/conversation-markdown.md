@@ -67,6 +67,20 @@ generated 는 첫 발화는 고정하고, 이후에는 노드 안에서만 처�
 - [exit 상태 2]: 고객이 "[예시]"처럼 [조건]을 표현한 경우.
 ```
 
+## Markdown → JSON 매핑
+
+설계 markdown 의 표기는 LLM 가독용이다. 실제 JSON `flow_data` 로 옮길 때는 다음 매핑을 사용한다.
+
+| Markdown 표기 | JSON `data` 필드 |
+|---|---|
+| `## name` | `data.name` (string) |
+| `message mode: static` | `data.promptType: "static"` + `data.staticSentence: "<발화 멘트 그대로>"` |
+| `message mode: generated` | `data.promptType: "dynamic"` + `data.firstMessage: "<진입 시 첫 발화>"` + `data.prompt: "<목적/노드 내 대화 처리/유의를 합쳐 작성한 LLM system prompt>"` |
+| `first_message: "..."` | `data.firstMessage` |
+| `transition conditions` 의 각 줄 | `data.transitions[].id` (자유 식별자) + `data.transitions[].condition: "<exit 조건 한국어 문장>"` |
+
+**주의**: `promptType` 의 enum 은 v3 에서 `"static"` 또는 `"dynamic"` 이다. 설계 markdown 의 `generated` 라는 단어를 그대로 JSON 에 넣지 않는다.
+
 ## Content boundary
 
 `content`에는 현재 노드 안에서 계속할 행동만 쓴다.
