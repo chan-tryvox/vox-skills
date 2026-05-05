@@ -21,39 +21,65 @@
 
 또한 `api / function` 노드의 **fallback target 을 곧바로 endCall 로 보내지 말 것** — fallback 은 retry / 친절한 안내 노드 / transferCall 같이 graceful degrade path 로 보낸다. fallback → endCall 직결은 작은 응답 schema 차이 한 번에 통화가 종료되어 사용자 경험과 scenario_test 통과율 모두 떨어진다.
 
-### `api` 노드를 연속으로 연결하지 말 것 (runtime race 회피)
+### `api` 노드 chain 패턴 (runtime race 회피) — **반드시 읽고 따를 것**
 
-`api` 노드 → `api` 노드 직결 edge 는 **금지**한다. 첫 번째 api 의 request_api 결과를 두 번째 api 가 평가하기 전에 두 번째 api 의 logicalTransitions 가 먼저 평가되어 fallback path 로 빠진다 (runtime race).
+`api` 노드를 연달아 호출해야 할 때 **절대 사이에 conversation/extraction `isSkipUserResponse: true` 'bridge' 노드를 끼우지 말 것**. 그 패턴은 runtime race 를 일으켜 두 번째 api 가 자기 tool 결과를 받기 전에 fallback transition 으로 빠진다 (실측 확인됨, 검증 시 reject 됨).
 
-대신 다음 패턴을 사용한다:
-- `api → conversation → api`: 첫 결과를 짧게 안내한 뒤 다음 api 호출
-- `api → condition → api`: 첫 응답 변수를 condition 으로 명시 분기 후 다음 api 호출
-- `api → extraction → api`: 사용자 추가 입력이 필요하면 extraction 으로 받은 뒤 다음 api 호출
+**Anti-pattern (금지):**
+```
+api_verify  ──>  bridge_announce(conversation, isSkipUserResponse=true, "확인 완료")  ──>  api_block
+                          ^^^ race: api_block 의 logicalTransitions 가 tool 결과 도착 전에 평가되어 fallback 으로 빠짐
+```
 
-api 노드 다음에 또 api 가 필요하다면 무조건 conversation/condition 한 단계를 끼워 넣어야 한다 — 짧은 static_sentence (예: "확인이 완료됐습니다. 다음 단계를 진행할게요.") + skip-user-response transition 한 줄로 충분하다.
+**Correct pattern A — 다음 api 의 `staticSentence` 에 안내문 합치기 (권장, 가장 단순):**
 
-**bridge conversation 노드 필수 필드** (auto-progress 가능하게 만들기):
-- `data.isSkipUserResponse: true` (노드 자체)
-- `data.transitions[0].isSkipUserResponse: true` (하나뿐인 outgoing transition)
-
-둘 중 하나라도 빠지면 runtime 이 LLM 평가자에게 떠넘기는데, LLM 은 명시적 사용자 입력이 없는 상태에서 분기를 결정하지 못해 노드가 자가 루프에 빠진다.
+api 노드는 `promptType: "static" + staticSentence` 를 가지면 request_api tool 이 호출되는 **동시에** static 문장을 발화한다. "확인 완료" + "다음 처리 진행" 안내를 다음 api 노드 자체에 넣으면 race 없이 자연스럽게 흐른다.
 
 ```jsonc
-// OK — bridge 가 auto-progress 한다
+// 기존: api_verify → bridge "인증 완료. 정지 진행" → api_block
+// 변경: api_verify → api_block (staticSentence 합침)
 {
-  "id": "bridge_to_next",
-  "type": "conversation",
+  "id": "api_block",
+  "type": "api",
   "data": {
-    "name": "단계 안내",
+    "name": "카드 정지 요청",
     "promptType": "static",
-    "staticSentence": "확인이 완료됐습니다. 다음 단계를 진행할게요.",
-    "isSkipUserResponse": true,            // 노드 자체에 필수
+    "staticSentence": "인증이 완료되었습니다. 카드 정지를 진행하겠습니다.",  // 직전 결과 안내 + 현재 단계 안내 한 문장
+    "isSkipUserResponse": true,
+    "apiConfiguration": { "method": "POST", "url": "...", ... },
+    "responseVariables": [{ "variableName": "block_success", "jsonPath": "$.success" }],
     "transitions": [
-      { "id": "tr_bridge_done", "isSkipUserResponse": true }
+      { "id": "tr_block_fail", "isFallback": true, "isSkipUserResponse": true, "condition": "요청 실패 시" }
+    ],
+    "logicalTransitions": [
+      { "id": "lt_block_ok", "condition": { "logicalOperator": "and",
+        "conditions": [{ "variable": "block_success", "operator": "equals", "value": true }] },
+        "isSkipUserResponse": true }
     ]
   }
 }
 ```
+
+**Correct pattern B — `condition` 노드 (LLM 호출 없는 순수 분기):**
+
+직전 api 의 응답 변수에 따라 분기가 정말 필요하면 `condition` 노드를 사용한다. condition 은 LLM 호출이 없어 race 가 없다.
+
+```
+api_verify  ──>  condition_check_role  ──>  api_admin_only
+                                       ──>  api_member_only
+```
+
+**Correct pattern C — 진짜 사용자 입력을 받는 `conversation` 노드:**
+
+api 결과를 보고 사용자에게 추가 입력을 받아야 하면, `isSkipUserResponse: true` 가 **아닌** 일반 conversation 노드를 둔다. 사용자 응답이 자연스러운 동기화 지점이 되어 race 가 발생하지 않는다.
+
+**금지되는 패턴 정리 (api-server validation 이 reject):**
+- `api → api` 직결 (사이 노드 없음)
+- `api → conversation(isSkipUserResponse=true) → api` (bridge 안티패턴, race)
+- `api → extraction(isSkipUserResponse=true) → api` (extraction 의 isSkipUserResponse 도 같은 race)
+- `api → sendSms(isSkipUserResponse=true) → api` (sendSms 도 동일)
+
+위 4 패턴은 `validate_flow_data` 호출 시 `API_CHAIN_RACE` 에러로 거부된다. 우회하지 말고 pattern A/B/C 로 재설계할 것.
 
 ### `logicalTransitions` 작성 시 mock-friendly 패턴 (scenario_test 통과를 위한 권장)
 
