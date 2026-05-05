@@ -455,6 +455,23 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 - 실패: SMS 발송 실패 시 fallback edge로 진행. (JSON 변환 시 edge 명시)
 ```
 
+### sendSms 실패 분기는 **사용자에게 고지하는 별도 wrap-up 으로 라우팅** 할 것 (필수)
+
+`sendSms` 가 사용자에게 의미 있는 확정/안내(예: 예약 변경 확정, 재발급 신청 안내)를 전달하는 경우, `tr_sms_*_fail` 분기는 **반드시 `tr_sms_*_success` 와 다른 wrap-up 노드로 보내고**, 그 wrap-up 에서 사용자에게 SMS 발송이 실패했음을 명시적으로 고지한다. 동일 노드로 합치면 사용자가 SMS 를 못 받았는지 모른 채 통화가 끝나 신뢰성 평가에서 감점된다.
+
+권장 패턴:
+
+```
+sendSms_confirm
+  ├─ tr_sms_success → wrap_up_success
+  │     "감사합니다. 좋은 하루 보내세요" → endCall
+  └─ tr_sms_fail    → wrap_up_sms_failed
+        "정상 처리되었으나 확정 SMS 발송에 일시적 오류가 발생했습니다.
+         변경 내용은 본 통화로 확인 부탁드립니다. 좋은 하루 보내세요" → endCall
+```
+
+`sms_fail → 동일 wrap-up` 은 anti-pattern. 두 분기는 **항상 다른 발화** 를 사용자에게 전달해야 한다. (단, fire-and-forget 알림처럼 사용자 expectation 이 없는 경우는 예외.)
+
 ## tool
 
 custom tool 실행 node 와 agent `data.builtInTools` 설정은 schema surface 가 다르다. JSON 변환 전 schema endpoint 로 현재 shape 를 확인한다.
