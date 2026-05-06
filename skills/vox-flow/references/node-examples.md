@@ -84,8 +84,34 @@
 - delivery_date: $.data.delivery_date — 배송 예정일
 
 ## transition conditions
-- 성공: API 응답 정상 수신 시 다음 노드로 진행.
-- 실패: API 호출 실패 시 fallback edge로 진행. (JSON 변환 시 edge 명시)
+- 성공: API 응답 정상 수신 시 결과 안내 노드로 진행. ai-edge 또는 logic-edge — 응답 변수 (`{{order_status}}`) 채워짐 기준 판단.
+- 실패: API 호출 실패 시 [API조회실패안내] conversation 노드로 진행. fallback edge 명시. **endCall 직행 금지** — 실패 시 사용자에게 양해 멘트 한 마디라도 전달.
+```
+
+### 짝꿍 노드: API 실패 안내 conversation
+
+위 api 노드의 실패 분기를 받는 경량 conversation 노드 예시. 안내 1회 후 마무리로 자연스럽게 흘려보낸다.
+
+```md
+## name
+API조회실패안내
+
+## content
+### 목적
+1. 주문 조회 실패 사실을 짧게 안내하고 마무리 흐름으로 넘어간다.
+
+### 모드
+- message mode: static
+- is_skip_user_response: true
+
+### 발화 멘트
+- "조회가 잠시 어렵네요. 확인 후 다시 안내드릴게요."
+
+### 유의
+1. 사과는 한 번만. 재시도 권유 금지.
+
+## transition conditions
+- 안내 후 자동 마무리: 발화 직후 다음 노드(endCall)로. (JSON 변환 시 현재 schema 의 skip/edge field 를 확인하고 edge 를 명시.)
 ```
 
 ## Transfer call

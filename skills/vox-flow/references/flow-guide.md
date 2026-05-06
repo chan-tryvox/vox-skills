@@ -113,11 +113,11 @@ LogicalTransition (변수 기반 deterministic 분기 — 주로 `condition` / `
 
 - **begin**: `transitions[]` 에 1 개 (보통 `{ id: "tr_begin_next" }`). condition 생략 가능 — begin 은 분기 안 함.
 - **conversation / knowledge**: `transitions[]` 에 자연어 condition 여러 개 (대화 흐름 분기). LLM 이 어떤 transition 으로 갈지 결정한다.
-- **extraction**: `transitions[]` 에 `isSkipUserResponse: true` 1 개 필수 (없으면 `MISSING_SKIP_USER_RESPONSE_TRANSITION`).
+- **extraction**: skip-user-response transition 이 필요하다. 정확한 JSON field 는 schema / dry-run 결과를 따른다.
 - **condition**: `logicalTransitions[]` 에 logic 분기 + `transitions[]` 에 fallback 1 개.
 - **api / tool / function**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` 1 개 + `logicalTransitions[]` (응답 변수 기반) 또는 `transitions[]` 의 다른 자연어 분기.
 - **sendSms**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` + 성공 path `transitions[]` 1 개.
-- **transferCall / transferAgent**: `transitions[]` 에 `isFallback: true, condition: "에러 발생 시"` 1 개 필수 (없으면 `MISSING_FALLBACK_TRANSITION`).
+- **transferCall / transferAgent**: 실패 fallback route 가 필요하다. 정확한 JSON field 는 schema / dry-run 결과를 따른다.
 - **endCall**: `transitions[]` 비어 있어도 됨 (terminal).
 
 ## 변수 흐름

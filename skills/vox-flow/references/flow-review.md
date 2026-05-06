@@ -80,10 +80,30 @@ flow agent 설계물(flowchart + 노드 상세 설계)을 체크리스트 기반
 | ID | 심각도 | 항목 | 판단 기준 |
 |----|--------|------|----------|
 | D1 | CRITICAL | schema endpoint 미확인 | MCP/API `flow_data` JSON 을 만들거나 수정하면서 `get_schema(namespace="flow-schema", schema_type="flow-data")` 결과를 확인하지 않은 경우 |
-| D2 | CRITICAL | 과거 field 복사 | `agentId`, `promptType`, `staticSentence`, node 내부 `transitions[]` 등 과거 데이터 형태를 schema 확인 없이 JSON field 로 사용 |
+| D2 | CRITICAL | API field 추측 | MCP `get_schema` 결과 없이 기억이나 과거 예시만으로 JSON field 를 작성 |
 | D3 | CRITICAL | fallback edge 누락 | 실패/else/default path 가 필요한데 `flow_data.edges` 에 명시하지 않고 자동 생성된다고 가정 |
 | D4 | WARN | round-trip 미확인 | `create_agent` / `update_agent` 후 `get_agent` 로 unknown field drop 여부를 확인하지 않음 |
 | D5 | WARN | agent data schema 미확인 | agent `data` 를 함께 보냈는데 `agent-schema` create/update schema 를 확인하지 않음 |
+
+### E. 통화 흐름 안전성 (silent termination 방지)
+
+schema 자체는 통과해도 사용자가 갑자기 통화 끊긴 듯한 경험을 하는 패턴을 잡는다. UX 의도라 schema 결과만으로는 알 수 없으므로 별도로 검사한다.
+
+| ID | 심각도 | 항목 | 판단 기준 |
+|----|--------|------|----------|
+| E1 | CRITICAL | api 노드 명시적 실패 분기 | 모든 api 노드에 성공 edge 외 명시적 실패 edge 가 있고, 실패 edge 의 target 이 endCall 직행이 아니라 retry / 양해 안내 conversation 노드인가. (anti-pattern / 권장 JSON 은 [execution-node-markdown.md#api](execution-node-markdown.md#api)) |
+| E2 | WARN | tool / sendSms 실패 분기 흡수 | tool / sendSms 노드의 실패 fallback edge 가 endCall 직행이 아닌 안내/재시도 conversation 으로 흡수되는가. |
+
+### F. dry-run + 식별자 필수 필드
+
+`validate_flow_data` 가 차단/경고로 잡는 항목들을 LLM 자체 점검에서도 한 번 잡아준다. dry-run 까지 가지 않고도 빠르게 자가 진단 가능.
+
+| ID | 심각도 | 항목 | 판단 기준 |
+|----|--------|------|----------|
+| F1 | CRITICAL | dry-run 미수행 | `flow_data` 를 `create_agent` / `update_agent` 로 보내기 전에 `validate_flow_data` 를 호출하지 않았는가. 이 단계가 없으면 차단 오류가 그대로 사용자에게 노출되고 자동 보정 결과도 안 보인다. |
+| F2 | CRITICAL | transferAgent 식별자 누락 | 모든 `transferAgent` 노드가 실제 조회된 대상 에이전트 식별자를 가지는가. placeholder 는 금지. |
+| F3 | CRITICAL | tool 식별자 누락 | 모든 `tool` 노드가 실제 조회된 도구 식별자를 가지는가. |
+| F4 | WARN | warnings 미반영 | dry-run 또는 create / update 응답의 자동 보정 안내를 사용자에게 한 줄도 전달하지 않았는가. 자동 보정 사실은 다음 작업 때 사람이 다시 의도와 맞춰야 하므로 반드시 알린다. |
 
 ## 출력 포맷
 
@@ -114,6 +134,9 @@ CRITICAL이 없고 WARN이 경미하면 "통과"로 판정. 각 항목은 1~2문
 |----------|----------|------------|
 | CRITICAL A1~A5 (flowchart 구조 문제) | 1단계(flow-sketch) 수정 후 2단계 재작업 | 전체 재리뷰 |
 | CRITICAL B1~B3, B16~B17, C1~C2 (노드 설계/정합성 문제) | 해당 노드만 2단계 재작업 | 해당 항목 + 정합성(C) 재리뷰 |
+| CRITICAL E1 (api 실패 분기 누락/오설계) | 해당 api 노드의 실패 edge target 을 안내 conversation 으로 변경 | 해당 노드 + 안내 노드 재확인 |
+| CRITICAL F1 (dry-run 미수행) | `validate_flow_data` 호출 후 `errors` 처리, `warnings` 사용자 전달 | 응답 처리 결과 재확인 |
+| CRITICAL F2~F3 (transferAgent / tool 식별자 누락) | MCP 조회 결과로 실제 대상 식별자를 채워 넣고 dry-run 재실행 | 해당 노드 + dry-run 응답 재확인 |
 | WARN | 해당 항목만 수정 | 수정 항목에 대해서만 재확인 |
 
 - 재리뷰 시 이전 리뷰에서 OK였던 항목은 재검사하지 않는다.

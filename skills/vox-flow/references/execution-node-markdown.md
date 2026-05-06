@@ -7,10 +7,11 @@
 - 실패, else, fallback path 가 필요하면 markdown 에 의도를 쓰고 JSON 변환 시 `edges` 로 명시한다.
 - 각 노드는 `## name / ## content / ## transition conditions` 구조를 유지한다.
 - `transitions[]` / `logicalTransitions[]` / `staticSentence` / `promptType` 등 **v3 의 정식 JSON 필드는 모두 사용한다** — markdown 의 표기 (예: "message mode: static") 를 JSON 필드명 (`promptType: "static"` + `staticSentence: ...`) 으로 옮긴다.
+- nested config default 채우기 / dry-run 호출 / 응답 처리는 SKILL.md 의 Core Operating Rules #9~#10 과 [Response Handling](../SKILL.md#response-handling) 을 따른다 — 실제 URL, 전환 대상, 도구 식별자처럼 시나리오가 결정해야 하는 값만 책임지고 나머지는 MCP schema / dry-run 결과를 따른다.
 
 ## JSON shape cheatsheet
 
-설계 markdown 으로부터 JSON 으로 변환할 때의 필수 필드. **누락 시 백엔드가 `MISSING_REQUIRED_NODE_CONFIG` 로 reject 한다.**
+설계 markdown 으로부터 JSON 으로 변환할 때의 필수 값. 정확한 field 이름과 required 여부는 MCP schema / dry-run 결과를 따른다.
 
 ### Transition condition 작성 규칙 (자주 틀림)
 
@@ -150,7 +151,7 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 { "id": "e1", "source": "send_sms", "target": "next", "sourceHandle": "tr_sms_success" }
 ```
 
-### `api` 노드 — `data.apiConfiguration.url` 필수
+### `api` 노드 — 실제 호출 URL 필요
 
 ```jsonc
 {
@@ -191,7 +192,7 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 }
 ```
 
-### `transferCall` 노드 — `data.transferConfiguration.transferTo` 필수
+### `transferCall` 노드 — 실제 전환 대상 필요
 
 ```jsonc
 {
@@ -216,9 +217,9 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 }
 ```
 
-### `transferAgent` 노드 — `data.agentId` 필수 (실제 대상 에이전트 UUID, **placeholder 금지**)
+### `transferAgent` 노드 — 실제 대상 에이전트 식별자 필요 (**placeholder 금지**)
 
-> **placeholder 사용 금지.** `"PLACEHOLDER_X_AGENT_ID"`, `"<target agent UUID>"` 같은 가짜 값을 넣으면 runtime 이 즉시 거부한다 (agent-server 가 numeric id 만 받는다). 실제 UUID 가 없다면 `transferAgent` 노드를 쓰지 말고 `transferCall` (phone number 또는 SIP URI) 로 대체한다.
+> **placeholder 사용 금지.** `"PLACEHOLDER_X_AGENT_ID"`, `"<target agent>"` 같은 가짜 값을 넣지 않는다. MCP schema 와 대상 agent 조회 결과로 실제 식별자 shape 를 확인한다. 실제 대상이 없으면 `transferAgent` 를 쓰지 말고 `transferCall` 또는 안내 후 종료 흐름으로 대체한다.
 
 ```jsonc
 {
@@ -229,7 +230,7 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
     "promptType": "static",
     "staticSentence": "담당팀 에이전트로 연결드리겠습니다.",
     "isSkipUserResponse": true,
-    "agentId": "<target agent UUID>",
+    "agentId": 12345,  // illustrative only. 실제 field/value 는 MCP schema + 대상 agent 조회 결과를 따른다.
     "preserveChatContext": false,
     "transitions": [
       { "id": "tr_xfer_fail", "isFallback": true, "isSkipUserResponse": true, "condition": "에러 발생 시" }
@@ -239,7 +240,7 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 }
 ```
 
-### `sendSms` 노드 — message 본문 필수
+### `sendSms` 노드 — 사용자에게 보낼 실제 본문 필요
 
 ```jsonc
 {
@@ -258,7 +259,7 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 }
 ```
 
-### `extraction` 노드 — `extractionConfiguration.variables[]` 필수
+### `extraction` 노드 — 추출할 실제 변수 목록 필요
 
 ```jsonc
 {
@@ -308,7 +309,7 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 ### `endCall` / `tool` / `function` / `note`
 
 - `endCall`: `data.promptType` 가 `"none"` 이면 멘트 없이 즉시 종료, `"static"` 이면 `staticSentence` 발화 후 종료.
-- `tool`: `data.toolId` 또는 `data.agentToolId` 로 대상 도구 지정 + api 노드와 같은 fallback transition 패턴.
+- `tool`: 실제 대상 도구를 지정한다. 정확한 field shape 는 MCP schema 결과를 따른다.
 - `function`: deprecated — 신규 flow 에 사용하지 않는다.
 - `note`: editor 메모 전용. runtime 에 영향 없음. 일반 transition / edge 에 포함시키지 않는다.
 
@@ -390,9 +391,31 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 - [variable_name]: [JSONPath 표현식] — [설명]
 
 ## transition conditions
-- 성공: API 응답 정상 수신 시 다음 노드로 진행.
-- 실패: API 호출 실패 시 fallback edge로 진행. (JSON 변환 시 edge 명시)
+- 성공: API 응답 정상 수신 시 다음 노드로 진행. ai-edge 또는 logic-edge — 응답 변수 (`{{response_var}}`) 가 채워졌는지 기준으로 판단.
+- 실패: API 호출 실패 시 [실패 안내 노드]로 진행. fallback edge. **endCall 직행 금지** — 사용자에게 사정 안내 후 재시도 또는 정중한 마무리.
 ```
+
+작성 규칙:
+- 성공 분기와 **명시적 실패 분기** 를 항상 한 쌍으로 설계한다. api 노드는 timeout, 5xx, 응답 형식 오류 등 실패 가능성이 일상이므로 silent termination(=fallback → endCall) 으로 처리하면 사용자가 갑자기 끊긴 듯한 경험을 한다.
+- 실패 분기는 보통 conversation 노드(예: "지금 시스템이 잠시 어렵네요, 다시 안내드릴게요")로 받아서 양해 멘트 → 마무리 흐름으로 흡수한다.
+
+**Anti-pattern (피하기):**
+
+```json
+{ "source": "node_api", "target": "node_end",
+  "condition": { "type": "fallback" }, "skip_user_response": false }
+```
+
+→ 호출 실패 시 안내 한마디 없이 endCall. 사용자는 갑자기 끊긴 인상을 받는다.
+
+**권장 패턴:**
+
+```json
+{ "source": "node_api", "target": "node_api_failure_apology",
+  "condition": { "type": "fallback" }, "skip_user_response": false }
+```
+
+`node_api_failure_apology` 는 짧은 사과/안내 conversation 노드 — "조회가 어려워서 확인 후 다시 안내드릴게요" 정도. 그 다음에 endCall 로 마무리.
 
 ## endCall
 
@@ -468,6 +491,10 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 - 실패: 전환 실패 시 fallback edge로 진행. (JSON 변환 시 edge 명시)
 ```
 
+작성 규칙:
+- 실제 대상 에이전트 식별자는 필수다. placeholder, 예시 문자열, 사용자가 확인하지 않은 ID 는 넣지 않는다.
+- 정확한 JSON field shape 는 MCP `get_schema` 와 대상 에이전트 조회 결과를 따른다. skill 은 transferAgent 의 API 계약을 복제하지 않는다.
+
 ## sendSms
 
 통화 중 SMS/LMS/MMS 를 발송한다.
@@ -533,6 +560,10 @@ custom tool 실행 node 와 agent `data.builtInTools` 설정은 schema surface �
 - 성공: 도구 실행 성공 시 다음 노드로 진행.
 - 실패: 도구 실행 실패 시 fallback edge로 진행. (JSON 변환 시 edge 명시)
 ```
+
+작성 규칙:
+- 실제 도구 식별자는 필수다. 등록되지 않은 custom tool 을 가리키지 않도록 MCP tool 조회 결과의 ID 를 사용한다.
+- built-in tool 과 custom tool 의 JSON surface 는 MCP schema 결과를 따른다. skill 은 도구 API 계약을 복제하지 않는다.
 
 ## Global node
 

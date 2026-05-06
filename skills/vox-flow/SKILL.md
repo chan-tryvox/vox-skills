@@ -36,33 +36,30 @@ Flow는 prompt agent의 확장이므로, **공통 음성 UX 규칙은 `vox-agent
 
 ## Workflow
 
-스크립트 → flow 변환 시 3단계로 진행:
+스크립트 → flow 변환 시 4단계로 진행:
 
 1. **시각화 (flow-sketch)**: 스크립트 → Mermaid flowchart + 노드 요약 테이블
 2. **상세 설계 (node creation)**: 확정된 차트의 각 노드 → flow node markdown. `node-creation.md`를 시작점으로 읽고 필요한 노드 계열 reference만 추가로 읽는다.
 3. **리뷰 (flow review)**: 체크리스트 기반 검증, CRITICAL/WARN/INFO 분류
+4. **dry-run 검증 (validate_flow_data)**: JSON 산출물이 준비되면 MCP `validate_flow_data` 를 호출해 결과를 사용자에게 한두 줄로 요약하고, errors / warnings 처리는 [Response Handling](#response-handling) 을 따른다. errors 가 비었을 때에만 `create_agent` / `update_agent` 호출.
 
-사용자가 시각화만 요청하면 1단계만. "노드로 변환해줘"면 1→2단계. "리뷰해줘"면 3단계.
+사용자가 시각화만 요청하면 1단계만. "노드로 변환해줘"면 1→2단계. "리뷰해줘"면 3단계. JSON 으로 보내려면 4단계까지.
 
 ## What the API auto-fixes vs what you must get right
 
-api-server 가 silent autofix 로 자동 채우는 항목은 **신경 쓰지 않아도 된다.** 토큰을 아끼고 사용자 경험 (UX) 과 분기 의도에 집중하라.
+api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation / autofix 로 보강한다. 정확한 보정 목록과 현재 API 계약은 MCP `validate_flow_data` / `autofix_flow_data` 응답을 따른다. 이 skill 에서는 그 목록을 외우지 말고, 설계자가 책임져야 하는 사용자 경험과 시나리오 의도에 집중한다.
 
-**Auto-fixed (걱정 X)**:
-- edge 의 `type: "custom"` 미명시 → 자동 채움
-- edge 의 `position` (sourcePosition / targetPosition) 누락 → 기본값 채움
-- `api`/`sendSms`/`function`/`tool` 노드의 success transition 누락 + 그 success edge 가 sourceHandle 없는 orphan 인 경우 → 합성 transition (`tr_<src>_success`, `isSkipUserResponse: true`) 추가 후 edge 자동 wire
-- non-fallback transition 이 정확히 1개일 때 sourceHandle 비어있는 edge → 그 transition 으로 자동 연결
-- `extraction` 노드의 transition 미명시 → `isSkipUserResponse: true` skip transition 자동 추가
-- `transferCall` / `transferAgent` / `api` / `function` / `tool` / `sendSms` 노드의 fallback transition 누락 → 자동 추가
-- fallback transition 의 빈 condition → canonical text 자동 채움 (`api`/`function`/`tool`/`sendSms`: `"요청 실패 시"`, `transferCall`/`transferAgent`: `"에러 발생 시"`)
+**Usually safe to leave to api-server / MCP dry-run**:
+- edge layout / handle / basic graph default 같이 deterministic 하게 보강 가능한 값
+- 실패 fallback transition / condition 처럼 표준 문구로 보강 가능한 runtime safety net
+- schema default 가 있는 nested config
 
-**You must get right (autofix X — 거부됨 또는 잘못 작동)**:
-- top-level `type: "flow"` (누락 시 silent 단일 프롬프트 저장)
-- `apiConfiguration.url`, `transferConfiguration.transferTo`, sendSms 본문 등 도메인 값
-- node 간 분기 의도 (logicalTransitions / condition 노드 분기 변수 매핑)
-- `api` 노드 chain 패턴 — `api → bridge(skip) → api` 는 `API_CHAIN_RACE` 로 거부되니 다음 api 의 `staticSentence` 에 합치거나 `condition` 노드로 대체
-- fallback/recovery edge 의 사용자 경험 — API가 fallback transition은 만들 수 있어도 어떤 안내/재시도/전환 노드로 보낼지는 설계자가 정해야 함
+**You must get right**:
+- top-level flow 생성 의도 (`type: "flow"`)
+- 실제 URL, 전화번호/SIP URI, 대상 에이전트, 도구 식별자, SMS 본문 같은 도메인 값
+- node 간 분기 의도와 condition 변수 매핑
+- `api` node chain race 를 피하는 설계 (`api → bridge(skip) → api` 대신 다음 api 의 안내문에 합치거나 `condition` node 사용)
+- fallback/recovery edge 의 사용자 경험 — API가 fallback transition 은 만들 수 있어도 어떤 안내/재시도/전환 노드로 보낼지는 설계자가 정해야 함
 - sendSms fail 분기는 성공 분기와 다른 wrap-up 으로 보내고 사용자에게 SMS 실패를 고지 (자세한 패턴은 `execution-node-markdown.md`)
 - 구체적 일자/시간을 한 노드에서 묶어 받기 (turn 절약)
 - 마무리 발화 + 작별 인사 (rubric 평가 시 필수)
@@ -111,6 +108,36 @@ api-server 가 silent autofix 로 자동 채우는 항목은 **신경 쓰지 않
 6. 전환조건에 "다음 단계 이름"을 쓰지 않는다 — exit 조건만 정의해야 노드 순서가 바뀌어도 LLM이 올바르게 판단한다.
 7. **산출물 경로는 두 가지** — (a) 대시보드 flow editor 에 사람이 직접 입력하는 노드 markdown, (b) v3 REST API (`PATCH /v3/agents/{id}` with `flow_data`) 또는 동등한 vox.ai MCP `create_agent` / `update_agent` 의 `flow_data` 파라미터로 보내는 JSON. JSON surface 는 schema endpoint 가 authoritative 하며, 수정은 항상 **전체 교체** 방식 — 기존 노드 일부만 patch 하지 않고 nodes/edges 전체를 다시 보낸다.
 8. **Schema endpoint 우선** — `references/node-types.md` 는 node 선택과 실수 방지 playbook 이다. 실제 필드 목록을 복사하지 말고, 작업 중 받은 `get_schema` 결과를 기준으로 `flow_data` 를 작성한다. 전송 후 `get_agent` 로 round-trip 확인해 unknown field drop 을 잡는다.
+9. **flow_data 전송 전 dry-run 먼저** — `create_agent` / `update_agent` 의 `flow_data` 를 보내기 전, MCP `validate_flow_data(flow_data=...)` 를 먼저 호출해 dry-run 한다. 응답의 `errors` 가 비었을 때만 진짜 호출하고, `warnings` / `fixed_flow_data` / `validation_message` 가 있으면 사용자에게 한두 줄로 요약 전달한다. 정확한 API 응답 shape 해석은 MCP가 담당하므로 skill 안에서 field contract 를 외워 맞추지 않는다.
+10. **nested config default 는 백엔드가 채운다** — 인증/헤더/바디 옵션처럼 schema default 가 있는 nested config 를 LLM 이 외워 채울 필요 없다. URL, 전환 대상, 도구 ID처럼 시나리오가 결정해야 하는 실제 값만 명시하고, 나머지는 schema endpoint 와 MCP dry-run 결과를 따른다.
+
+## Boundary Rule
+
+- **Runtime 에서 문제나는 케이스**: api-server validation / autofix 가 막거나 보강한다. skill 은 같은 검증 로직을 복제하지 않는다.
+- **API layer 설명과 정상 작동 보장**: MCP `get_schema`, `validate_flow_data`, `autofix_flow_data`, `create_agent`, `update_agent` 가 담당한다. skill 은 이 도구들을 호출하는 순서와 결과 처리만 안내한다.
+- **운영 팁 / 시나리오 분석 / 생성**: 이 skill 이 담당한다. 사용자 경험, fallback 안내 문구, 노드 수 줄이기, scenario_test 통과 패턴 같은 판단을 여기에 둔다.
+
+## Response Handling
+
+`validate_flow_data` / `create_agent` / `update_agent` 의 검증 결과를 어떻게 다루는지 정리.
+
+### `validate_flow_data` 응답
+
+- `valid: true` + `errors: []` → 안전. `fixed_flow_data` 가 있으면 그 값을, 없으면 원래 flow_data 를 `create_agent` / `update_agent` 로 보낸다.
+- `valid: true` + `warnings: [...]` → 자동 보정이 적용되었거나 권장 사항이 있음. 사용자에게 한두 줄로 요약 후 진행 (예: "api 노드 X 에 실패 fallback 자동 추가됨").
+- `valid: false` → `errors[]` 의 각 항목 (`field`/`code` 또는 `rule`/`node_id`, `message`, `suggestion`) 을 읽고 1회 수정 후 재검증. 같은 error 가 다시 나오면 사용자에게 보고하고 멈춘다.
+
+### `create_agent` / `update_agent` 422 / 400 응답
+
+MCP가 정규화해 보여주는 error 메시지를 기준으로 수정한다. API 응답 envelope 나 내부 error shape 를 skill 에서 직접 해석하지 않는다.
+
+### `create_agent` / `update_agent` 성공 응답의 자동 보정 안내
+
+MCP가 자동 보정 안내 텍스트를 제공하면 그대로 전달한다. 안내가 비어 있으면 추가로 보고할 내용이 없는 것이다.
+
+### 반복 실패 처리
+
+같은 dry-run error 가 2번 연속 나오면 API 계약을 추측해서 고치지 말고, MCP `get_schema` 를 다시 호출해 현재 shape 를 확인한 뒤 사용자에게 어떤 값이 필요한지 보고한다.
 
 ## Ownership Boundary
 
@@ -130,8 +157,8 @@ api-server 가 silent autofix 로 자동 채우는 항목은 **신경 쓰지 않
 - `update_agent_partial(agent_id, operations[])` — flow_data 부분 수정. 각 operation 은 `{op: addNode|removeNode|updateNode|addEdge|removeEdge|updateEdge|cleanStaleEdges, ...}` shape. atomic 적용 + 전체 graph validation. 토큰 절감용 — 노드 1~2 개만 바꿀 때 사용.
 - `get_agent` — 기존 에이전트 설정 확인 (flow_data 포함)
 - `list_agents` — 에이전트 목록
-- `validate_flow_data(flow_data)` — dry-run 검증. blocking error 미리 확인.
-- `autofix_flow_data(flow_data, apply_fixes=false|true)` — safe deterministic fix 자동 적용. 누락된 position, edge type, extraction skip transition, execution-node fallback transition, blank fallback condition 을 채운다. 도메인 값 (apiConfiguration.url, transferConfiguration.transferTo) 과 recovery edge 의 UX 의도는 자동 fix 안 됨 — `remaining_errors` 또는 runtime review 로 surface.
+- `validate_flow_data(flow_data=...)` — flow_data dry-run. 응답의 `errors` 가 비었을 때만 `create_agent` / `update_agent` 를 호출한다. 서버/도구 버전에 따라 `fixed_flow_data` / `warnings` 가 있으면 그 보정 결과와 안내를 사용자에게 전달한다.
+- `autofix_flow_data(flow_data, apply_fixes=false|true)` — safe deterministic graph fix 를 dry-run / apply 한다. 도메인 값과 recovery edge 의 UX 의도는 자동 fix 대상이 아니므로, `remaining_errors` 와 runtime review 결과를 보고 설계자가 결정한다.
 - `get_schema(namespace='flow-schema', schema_type='flow-data', detail='standard'|'minimal')` — flow_data JSON Schema. `detail='minimal'` 은 description / title / examples 를 제거한 lean payload (≈40-50% token savings) — schema shape 가 익숙할 때만 사용. `create_agent` / `update_agent` / `update_agent_partial` 의 `flow_data` 구성 전에 호출.
 
 ### Docs (vox.ai docs / vox-docs)
