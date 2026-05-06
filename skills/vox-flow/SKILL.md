@@ -45,12 +45,25 @@ Flow는 prompt agent의 확장이므로, **공통 음성 UX 규칙은 `vox-agent
 
 사용자가 시각화만 요청하면 1단계만. "노드로 변환해줘"면 1→2단계. "리뷰해줘"면 3단계. JSON 으로 보내려면 4단계까지.
 
+## Compact Flow Default
+
+복잡한 시나리오라도 기본 생성 목표는 **약 10개 노드 이내**다. scenario_test / MCP 생성 루프에서는 사용자가 명시적으로 더 복잡한 업무를 요구하지 않는 한 10개 안팎을 상한으로 보고 설계한다. 10개를 넘겨야 하면 먼저 이유를 설명하고, 실제 생성 전에는 아래 압축 패턴으로 줄일 수 있는지 다시 검토한다.
+
+권장 10-node shape:
+`begin → collect_request → extract_request → api_lookup/check → collect_confirmation → extract_confirmation → api_confirm/process → sendSms(optional) → end_success → end_recovery`
+
+- `condition` node 는 사람이 읽는 분기표가 꼭 필요하거나 여러 성공 분기가 있을 때만 둔다. 단순 boolean API 결과는 가능하면 `api` node 의 logical transition 으로 다음 conversation/end node 에 보낸다.
+- lookup/check API 를 2개로 쪼개기보다 하나의 API 에서 eligibility/availability 를 함께 확인할 수 있으면 합친다. 확정/처리 API 는 별도로 둔다.
+- 실패, 취소, SMS 실패는 각각 긴 conversation node 를 만들기보다 충분히 구체적인 `endCall` 응답으로 접는다. 단, 사용자가 계속 선택해야 하는 복구 대화가 필요하면 별도 conversation node 를 둔다.
+- 같은 단계의 값은 한 conversation/extraction pair 에서 모은다. 예: 예매번호+본인확인+수신자 정보, 예약번호+도착시간+주차+침대 요청.
+- hard 시나리오에서 세부 예외를 모두 노드로 펼치지 않는다. happy path + 주요 실패 path 1개를 먼저 안정화하고, 추가 예외는 API/server validation 이 아니라 운영 설계 필요성이 확인될 때만 추가한다.
+
 ## What the API auto-fixes vs what you must get right
 
 api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation / autofix 로 보강한다. 정확한 보정 목록과 현재 API 계약은 MCP `validate_flow_data` / `autofix_flow_data` 응답을 따른다. 이 skill 에서는 그 목록을 외우지 말고, 설계자가 책임져야 하는 사용자 경험과 시나리오 의도에 집중한다.
 
 **Usually safe to leave to api-server / MCP dry-run**:
-- edge layout / handle / basic graph default 같이 deterministic 하게 보강 가능한 값
+- edge layout / handle / basic graph default 같이 deterministic 하게 보강 가능한 값. 단, 새 JSON 을 생성할 때는 web editor round-trip 을 위해 edge `targetHandle: "{targetNodeId}-target"` 를 명시한다.
 - 실패 fallback transition / condition 처럼 표준 문구로 보강 가능한 runtime safety net
 - schema default 가 있는 nested config
 
@@ -58,11 +71,16 @@ api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation
 - top-level flow 생성 의도 (`type: "flow"`)
 - 실제 URL, 전화번호/SIP URI, 대상 에이전트, 도구 식별자, SMS 본문 같은 도메인 값
 - node 간 분기 의도와 condition 변수 매핑
+- edge wiring: `sourceHandle` 은 source node transition id 와 일치시키고, `targetHandle` 은 target node 기준 `"{targetNodeId}-target"` 로 둔다.
+- editor-visible execution wiring: api node 에서 응답 변수로 분기할 때 `logicalTransitions[]` 는 runtime 분기용으로 유지하고, 같은 id 를 `transitions[]` 에도 visible row 로 mirror 해서 web editor 선이 붙어 보이게 한다. api/function/tool/sendSms 의 fallback row 와 edge 가 연결되는 success/conditional row 는 visible row 여야 하므로 그 row 자체에 `isSkipUserResponse` 를 붙이지 않는다. node-level 자동 진행이 필요하면 별도 hidden skip transition 이 담당한다.
 - `api` node chain race 를 피하는 설계 (`api → bridge(skip) → api` 대신 다음 api 의 안내문에 합치거나 `condition` node 사용)
 - fallback/recovery edge 의 사용자 경험 — API가 fallback transition 은 만들 수 있어도 어떤 안내/재시도/전환 노드로 보낼지는 설계자가 정해야 함
 - sendSms fail 분기는 성공 분기와 다른 wrap-up 으로 보내고 사용자에게 SMS 실패를 고지 (자세한 패턴은 `execution-node-markdown.md`)
 - 구체적 일자/시간을 한 노드에서 묶어 받기 (turn 절약)
 - API 가 availability / eligibility 만 확인하는 단계에서는 고객이 요청한 날짜, 시간, 수량, 수신자 정보를 confirmation 과 wrap-up 의 source of truth 로 유지하기. API 가 같은 값을 명시적으로 echo 하지 않는 한 generic 응답 필드(`$.data.date`, `$.data.time` 등)로 고객 요청값을 덮어쓰지 않는다.
+- 정보 수집용 conversation node 는 업무를 완료한 것처럼 요약/종료하지 않는다. 필요한 정보가 모이면 `extraction` / `api` / `condition` / `sendSms` 로 넘어가게 prompt 와 transition condition 에 명시하고, "접수 완료", "처리 완료", 최종 요약은 confirm API 와 SMS 결과 이후 wrap-up node 에만 둔다.
+- 첫 고객 발화에 현재 노드가 요구한 정보와 다음 노드 정보가 함께 들어올 수 있다. 예: 운송장+수취인+희망 일시. 이때 수집 노드는 "조회하겠다" 라고 말하고 머무르지 말고, 현재 단계 필수값이 확보되는 즉시 extraction/API 로 전환한다. 다음 단계 정보는 나중에 다시 묻지 않도록 extraction 변수로 보존하거나 다음 수집 노드에서 "이미 말한 값이 있으면 재질문하지 않음" 을 명시한다.
+- scenario_test 용 user prompt 를 만들 때는 확인/동의 질문에서 멈추지 않게 쓴다. "확정해 드릴까요?", "진행할까요?", "동의하시나요?" 같은 질문에는 명시적으로 동의하고 `should_end=false` 로 다음 agent 발화를 기다리도록 지시한다. 종료는 confirm API, SMS 성공/실패 wrap-up, endCall 발화 이후에만 허용한다.
 - 마무리 발화 + 작별 인사 (rubric 평가 시 필수)
 
 ## Node Type 요약

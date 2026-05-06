@@ -72,14 +72,16 @@
         "source": "begin",
         "target": "greet",
         "type": "custom",
-        "sourceHandle": "tr_begin_next"
+        "sourceHandle": "tr_begin_next",
+        "targetHandle": "greet-target"
       },
       {
         "id": "e_greet_end",
         "source": "greet",
         "target": "end_call",
         "type": "custom",
-        "sourceHandle": "tr_greet_done"
+        "sourceHandle": "tr_greet_done",
+        "targetHandle": "end_call-target"
       }
     ]
   }

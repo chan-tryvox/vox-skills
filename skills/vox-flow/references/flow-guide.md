@@ -61,12 +61,13 @@ FlowEdge {
   target: string              // 도착 node.id
   type: "custom"              // 항상 "custom" — 생략 시 backend 가 채우지만 명시 권장
   sourceHandle: string        // source 노드의 data.transitions[].id 또는 data.logicalTransitions[].id 와 일치해야 한다
-  targetHandle?: string|null  // 일반적으로 null
+  targetHandle: string        // "{targetNodeId}-target" — web editor 입력 handle
 }
 ```
 
 - **edge 자체에는 `condition` 객체가 없다.** 분기 라우팅 정보는 source 노드의 transition 안에 있다.
 - `sourceHandle` 가 source 노드 transition 의 id 와 안 맞으면 edge 가 dangling 상태로 저장되어 runtime 에서 무시된다.
+- `targetHandle` 은 항상 target node 기준 `"{target}-target"` 로 둔다. api-server / MCP dry-run 이 누락값을 보정할 수 있지만, skill 이 생성하는 JSON 은 처음부터 editor-safe shape 로 만든다.
 
 ### Transition (노드 내부 분기 단위)
 
@@ -117,8 +118,8 @@ LogicalTransition (변수 기반 deterministic 분기 — 주로 `condition` / `
 - **conversation / knowledge**: `transitions[]` 에 자연어 condition 여러 개 (대화 흐름 분기). LLM 이 어떤 transition 으로 갈지 결정한다.
 - **extraction**: skip-user-response transition 이 필요하다. 정확한 JSON field 는 schema / dry-run 결과를 따른다.
 - **condition**: `logicalTransitions[]` 에 logic 분기 + `transitions[]` 에 fallback 1 개.
-- **api / tool / function**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` 1 개 + `logicalTransitions[]` (응답 변수 기반) 또는 `transitions[]` 의 다른 자연어 분기.
-- **sendSms**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` + 성공 path `transitions[]` 1 개.
+- **api / tool / function**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` 1 개 + `logicalTransitions[]` (응답 변수 기반) 또는 `transitions[]` 의 다른 자연어 분기. api `logicalTransitions[]` 를 edge sourceHandle 로 쓰면 같은 id 를 visible `transitions[]` 에도 mirror 한다. edge 가 붙는 success/conditional row 에는 `isSkipUserResponse` 를 붙이지 않는다.
+- **sendSms**: `transitions[]` 에 `isFallback: true, condition: "요청 실패 시"` + 성공 path `transitions[]` 1 개. 성공 path row 는 web editor 에 보여야 하므로 `isSkipUserResponse` 없이 둔다.
 - **transferCall / transferAgent**: 실패 fallback route 가 필요하다. 정확한 JSON field 는 schema / dry-run 결과를 따른다.
 - **endCall**: `transitions[]` 비어 있어도 됨 (terminal).
 
@@ -174,7 +175,7 @@ conversation → extraction → condition → api → conversation
 
 다음 노드는 fallback transition 이 필수다. API는 누락된 transition/빈 condition을 자동 보강하지만, 사용자가 들어야 하는 안내·재시도·상담원 전환 같은 recovery edge 는 설계자가 명시해야 한다.
 - **transferCall / transferAgent**: `isFallback: true` 1 개. condition `"에러 발생 시"`.
-- **api / function / tool / sendSms**: `isFallback: true` 1 개. condition `"요청 실패 시"`.
+- **api / function / tool / sendSms**: `isFallback: true` 1 개. condition `"요청 실패 시"`. web editor 에 fallback row 가 보여야 하므로 같은 fallback row 에 `isSkipUserResponse` 를 붙이지 않는다.
 - **condition**: `logicalTransitions[]` 외에 `transitions[]` 에 fallback 1 개. condition 한국어 문장 (예: `"위 조건이 모두 거짓일 때"`).
 
 다음 노드는 fallback 권장 (없어도 backend 가 강제하지는 않음):
@@ -307,6 +308,7 @@ mcp__vox__get_agent(agent_id="<UUID>")   # 응답에 flow_data 포함
 - `type: "flow"` 가 top-level 에 있는가? (없으면 `single_prompt` 로 저장되어 flow_data 가 null)
 - 모든 node 에 `position: {x, y}` 가 있는가? (없으면 `NODE_POSITION_REQUIRED`)
 - 모든 edge 의 `sourceHandle` 가 source 노드의 transition.id 와 일치하는가? (안 맞으면 dangling)
+- 모든 edge 의 `targetHandle` 이 `"{targetNodeId}-target"` 인가? (없으면 web editor 에서 선/전환 표시가 끊겨 보일 수 있음)
 - extraction 노드에 `isSkipUserResponse: true` 인 transition 이 1 개 이상 있는가?
 - transferCall / transferAgent 노드에 `isFallback: true` 인 transition 이 1 개 이상 있는가?
 - 모든 transition.condition 이 의미 있는 한국어 문장인가? (빈 문자열 금지, fallback 은 캐노니컬 문구)

@@ -51,6 +51,7 @@ schema 결과를 받은 뒤에만 `create_agent(type="flow", data=..., flow_data
 - flow_data 의 정확한 graph / edge field shape 는 MCP `flow-data` schema 를 따르고, node data field shape 는 node type별 schema 를 따른다.
 - 분기 의도는 사람이 정한다. API가 일부 fallback transition 을 보강할 수 있어도, 실패 시 어느 안내/재시도/전환 노드로 보낼지는 skill 이 시나리오 기준으로 설계해야 한다.
 - fallback transition/condition 은 API가 보강할 수 있지만, 필요한 fallback path 의 target 은 자동으로 정할 수 없다. 사용자에게 안내해야 하는 실패 경로는 `edges` 안에 명시한다.
+- JSON 으로 edge 를 만들 때는 `type: "custom"` 과 `targetHandle: "{targetNodeId}-target"` 를 같이 둔다. 누락값은 API가 보정할 수 있지만, 생성물은 web editor 에서 바로 연결되어 보여야 한다.
 - layout / handle / viewport 같은 필드는 기억으로 작성하지 않고 schema endpoint 와 round-trip 결과로 확인한다.
 
 ## High-risk nodes
@@ -68,5 +69,6 @@ schema 결과를 받은 뒤에만 `create_agent(type="flow", data=..., flow_data
 1. `get_schema(namespace="flow-schema", schema_type="flow-data")` 와 필요한 `node-{type}` schema 를 호출했는가?
 2. schema 결과에 없는 field 를 과거 문서나 UI 기억만으로 넣지 않았는가?
 3. fallback, failure, else path 를 필요한 `edges` 로 명시했는가?
-4. dry-run 절차 (`validate_flow_data` → errors 없음 확인 → 보정/경고 메시지 전달) 를 거쳤는가? 자세한 응답 처리 룰은 SKILL.md [Response Handling](../SKILL.md#response-handling).
-5. `create_agent` / `update_agent` 후 `get_agent` 로 round-trip 확인했는가? 응답에서 사라진 field 가 있다면 schema 결과 기준으로 다시 작성했는가?
+4. 모든 edge 에 `targetHandle: "{targetNodeId}-target"` 가 있는가?
+5. dry-run 절차 (`validate_flow_data` → errors 없음 확인 → 보정/경고 메시지 전달) 를 거쳤는가? 자세한 응답 처리 룰은 SKILL.md [Response Handling](../SKILL.md#response-handling).
+6. `create_agent` / `update_agent` 후 `get_agent` 로 round-trip 확인했는가? 응답에서 사라진 field 가 있다면 schema 결과 기준으로 다시 작성했는가?

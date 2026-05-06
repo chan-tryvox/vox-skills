@@ -50,7 +50,8 @@ api 노드는 `promptType: "static" + staticSentence` 를 가지면 request_api 
     "apiConfiguration": { "method": "POST", "url": "...", ... },
     "responseVariables": [{ "variableName": "block_success", "jsonPath": "$.success" }],
     "transitions": [
-      { "id": "tr_block_fail", "isFallback": true, "isSkipUserResponse": true, "condition": "요청 실패 시" }
+      { "id": "lt_block_ok", "condition": "API 응답 수신 시" },
+      { "id": "tr_block_fail", "isFallback": true, "condition": "요청 실패 시" }
     ],
     "logicalTransitions": [
       { "id": "lt_block_ok", "condition": { "logicalOperator": "and",
@@ -137,18 +138,21 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 ### Edge ↔ transition id 일관성 규칙 (자주 틀림)
 
 `edge.sourceHandle` 값은 **반드시** 같은 source 노드의 `data.transitions[].id` 또는 `data.logicalTransitions[].id` 중 하나와 정확히 일치해야 한다.
+`edge.targetHandle` 값은 **항상** target 노드 기준 `"{targetNodeId}-target"` 로 적는다. backend 가 보정할 수 있어도, 생성 JSON 은 web editor 에서 선과 전환이 바로 붙어 보이는 shape 여야 한다.
 
 - **success path 가 단 하나** (예: `api`, `sendSms`, `transferCall`, `tool`) — `sourceHandle` 을 비워 두면 backend 가 fallback 이외의 next path 로 자동 라우팅한다. **stable id 를 쓰고 싶다면**, transition 을 명시 추가해야 하고 그 id 를 그대로 edge 에 적어야 한다.
 - **branch 가 여러 개** (예: `condition`, `extraction → 분기`) — `data.logicalTransitions[]` 에 정의한 `lt_*` id 를 그대로 사용한다.
+- **api 응답 변수 분기** — runtime 은 `logicalTransitions[]` 를 평가하지만 web editor 는 visible `transitions[]` row 로 source handle 을 그린다. API node 의 `logicalTransitions[].id` 는 같은 id 로 `transitions[]` 에도 mirror 한다. fallback row 는 `isFallback: true` 만 두고 같은 row 에 `isSkipUserResponse` 를 붙이지 않는다.
+- **api/function/tool/sendSms success/conditional row** — edge 가 붙는 visible row 에 `isSkipUserResponse` 를 붙이지 않는다. node-level 자동 진행이 필요하면 backend 가 별도 hidden skip transition 을 둔다.
 - 절대로 edge 에 `sourceHandle: "tr_X_success"` 같은 임의 이름을 적은 뒤 노드 transition 에는 random id (`"jciEWA2LH4"` 등) 를 두지 말 것 — 양쪽 id 가 정확히 일치해야 한다.
 
 ```jsonc
 // OK: success 는 sourceHandle 생략
-{ "id": "e1", "source": "send_sms", "target": "next" }
+{ "id": "e1", "source": "send_sms", "target": "next", "targetHandle": "next-target", "type": "custom" }
 // OK: success 도 stable id 명시 — node 에도 같은 id 가 있어야 함
-{ "id": "e1", "source": "send_sms", "target": "next", "sourceHandle": "tr_sms_success" }
+{ "id": "e1", "source": "send_sms", "target": "next", "sourceHandle": "tr_sms_success", "targetHandle": "next-target", "type": "custom" }
 // BAD: 노드에는 tr_sms_success 가 없고 random id 로 만들어 둔 상태
-{ "id": "e1", "source": "send_sms", "target": "next", "sourceHandle": "tr_sms_success" }
+{ "id": "e1", "source": "send_sms", "target": "next", "sourceHandle": "tr_sms_success", "targetHandle": "next-target", "type": "custom" }
 ```
 
 ### `api` 노드 — 실제 호출 URL 필요
@@ -175,7 +179,8 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
       { "variableName": "verify_status", "jsonPath": "$.status" }
     ],
     "transitions": [
-      { "id": "tr_verify_fail", "isFallback": true, "isSkipUserResponse": true, "condition": "요청 실패 시" }
+      { "id": "lt_verify_ok", "condition": "API 응답 수신 시" },
+      { "id": "tr_verify_fail", "isFallback": true, "condition": "요청 실패 시" }
     ],
     "logicalTransitions": [
       {
@@ -252,7 +257,8 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
     "staticSentence": "{{customer_name}}님 예약이 확정되었습니다 (예약번호: {{reservation_id}}).",
     "isSkipUserResponse": true,
     "transitions": [
-      { "id": "tr_sms_fail", "isFallback": true, "isSkipUserResponse": true, "condition": "요청 실패 시" }
+      { "id": "tr_sms_success", "condition": "요청 성공 시" },
+      { "id": "tr_sms_fail", "isFallback": true, "condition": "요청 실패 시" }
     ]
   },
   "position": { "x": 1920, "y": 0 }
