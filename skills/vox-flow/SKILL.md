@@ -54,13 +54,15 @@ api-server 가 silent autofix 로 자동 채우는 항목은 **신경 쓰지 않
 - `api`/`sendSms`/`function`/`tool` 노드의 success transition 누락 + 그 success edge 가 sourceHandle 없는 orphan 인 경우 → 합성 transition (`tr_<src>_success`, `isSkipUserResponse: true`) 추가 후 edge 자동 wire
 - non-fallback transition 이 정확히 1개일 때 sourceHandle 비어있는 edge → 그 transition 으로 자동 연결
 - `extraction` 노드의 transition 미명시 → `isSkipUserResponse: true` skip transition 자동 추가
-- `transferCall` / `transferAgent` 노드의 fallback transition 빈 condition → canonical text ("요청 실패 시") 자동 채움
+- `transferCall` / `transferAgent` / `api` / `function` / `tool` / `sendSms` 노드의 fallback transition 누락 → 자동 추가
+- fallback transition 의 빈 condition → canonical text 자동 채움 (`api`/`function`/`tool`/`sendSms`: `"요청 실패 시"`, `transferCall`/`transferAgent`: `"에러 발생 시"`)
 
 **You must get right (autofix X — 거부됨 또는 잘못 작동)**:
 - top-level `type: "flow"` (누락 시 silent 단일 프롬프트 저장)
 - `apiConfiguration.url`, `transferConfiguration.transferTo`, sendSms 본문 등 도메인 값
 - node 간 분기 의도 (logicalTransitions / condition 노드 분기 변수 매핑)
 - `api` 노드 chain 패턴 — `api → bridge(skip) → api` 는 `API_CHAIN_RACE` 로 거부되니 다음 api 의 `staticSentence` 에 합치거나 `condition` 노드로 대체
+- fallback/recovery edge 의 사용자 경험 — API가 fallback transition은 만들 수 있어도 어떤 안내/재시도/전환 노드로 보낼지는 설계자가 정해야 함
 - sendSms fail 분기는 성공 분기와 다른 wrap-up 으로 보내고 사용자에게 SMS 실패를 고지 (자세한 패턴은 `execution-node-markdown.md`)
 - 구체적 일자/시간을 한 노드에서 묶어 받기 (turn 절약)
 - 마무리 발화 + 작별 인사 (rubric 평가 시 필수)
@@ -129,7 +131,7 @@ api-server 가 silent autofix 로 자동 채우는 항목은 **신경 쓰지 않
 - `get_agent` — 기존 에이전트 설정 확인 (flow_data 포함)
 - `list_agents` — 에이전트 목록
 - `validate_flow_data(flow_data)` — dry-run 검증. blocking error 미리 확인.
-- `autofix_flow_data(flow_data, apply_fixes=false|true)` — safe deterministic fix 자동 적용. 누락된 position, edge type, extraction skip transition, transferCall/transferAgent fallback transition, blank fallback condition 을 채운다. 도메인 값 (apiConfiguration.url, transferConfiguration.transferTo) 은 자동 fix 안 됨 — `remaining_errors` 로 surface.
+- `autofix_flow_data(flow_data, apply_fixes=false|true)` — safe deterministic fix 자동 적용. 누락된 position, edge type, extraction skip transition, execution-node fallback transition, blank fallback condition 을 채운다. 도메인 값 (apiConfiguration.url, transferConfiguration.transferTo) 과 recovery edge 의 UX 의도는 자동 fix 안 됨 — `remaining_errors` 또는 runtime review 로 surface.
 - `get_schema(namespace='flow-schema', schema_type='flow-data', detail='standard'|'minimal')` — flow_data JSON Schema. `detail='minimal'` 은 description / title / examples 를 제거한 lean payload (≈40-50% token savings) — schema shape 가 익숙할 때만 사용. `create_agent` / `update_agent` / `update_agent_partial` 의 `flow_data` 구성 전에 호출.
 
 ### Docs (vox.ai docs / vox-docs)

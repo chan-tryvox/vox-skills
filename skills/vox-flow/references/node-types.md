@@ -41,7 +41,7 @@ schema 결과를 받은 뒤에만 `create_agent(type="flow", data=..., flow_data
 
 - 노드 내부에 구 v2 `transitions[]`, `logicalTransitions[]`, `sourceHandle` 같은 editor/legacy field 를 넣지 않는다.
 - 분기는 `edges[].condition` 으로 표현한다. condition 의 정확한 union shape 는 schema endpoint 를 확인한다.
-- fallback 은 자동으로 생긴다고 가정하지 않는다. JSON 을 보낼 때 필요한 fallback path 는 `edges` 안에 명시한다.
+- fallback transition/condition 은 API가 보강할 수 있지만, 필요한 fallback path 의 target 은 자동으로 정할 수 없다. 사용자에게 안내해야 하는 실패 경로는 `edges` 안에 명시한다.
 - `position`, `viewport`, `sourceHandle`, `targetHandle`, animated edge 등 layout/editor field 는 API payload 기준이 아니다. 필요 여부는 schema endpoint 와 round-trip 결과로만 판단한다.
 
 ## High-risk nodes

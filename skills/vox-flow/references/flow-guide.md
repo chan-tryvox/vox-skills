@@ -170,7 +170,7 @@ conversation → extraction → condition → api → conversation
 
 ### 4. Fallback 경로 확보
 
-다음 노드는 fallback transition 이 필수다 (없으면 백엔드가 reject):
+다음 노드는 fallback transition 이 필수다. API는 누락된 transition/빈 condition을 자동 보강하지만, 사용자가 들어야 하는 안내·재시도·상담원 전환 같은 recovery edge 는 설계자가 명시해야 한다.
 - **transferCall / transferAgent**: `isFallback: true` 1 개. condition `"에러 발생 시"`.
 - **api / function / tool / sendSms**: `isFallback: true` 1 개. condition `"요청 실패 시"`.
 - **condition**: `logicalTransitions[]` 외에 `transitions[]` 에 fallback 1 개. condition 한국어 문장 (예: `"위 조건이 모두 거짓일 때"`).
