@@ -105,6 +105,24 @@ generated 는 첫 발화는 고정하고, 이후에는 노드 안에서만 처�
 - 고객 발화 기반 조건과 변수 기반 조건을 섞지 않는다. 변수 기반 분기는 condition 노드로 보낸다.
 - "동의/거절" 같은 자연어 판단은 보통 conversation out-edge 조건이다.
 
+## 사용자가 이미 답한 정보를 다시 묻지 않기 (rubric 5번 - 무한 반복 회피)
+
+사용자가 문의 첫 발화에서 "예약 변경하려고요. 김하늘이고 990315입니다" 처럼 **여러 단계 정보를 proactive 하게 한 번에 제공**하는 경우가 잦다. flow 가 본인확인 → 의도 분기 → 새 일정 받기 같은 단계로 짜여 있더라도, **이미 받은 정보를 다음 단계에서 재질문하면 rubric 평가에서 불합격**한다.
+
+대응 패턴:
+
+- **conversation 노드의 prompt 에 명시**: "사용자 발화에 이미 [수집 대상] 이 포함되어 있으면 재질문하지 말고 바로 transition 으로 진행할 것" 같이 적는다.
+- **transition condition 을 넓게**: "이름과 생년월일이 이미 발화에 있는 경우" 같이 proactive 입력도 잡도록 적는다.
+- **API 결과 안내 노드와 다음 단계 입력 노드를 분리**: "주문을 확인했습니다 → (다음) 어떤 항목 변경하실까요" 를 한 노드에서 둘 다 하지 말고, API 안내는 api 의 staticSentence 에 합치고 다음 노드는 단일 목적 (변경 내용 받기) 으로 두기. 한 노드에서 안내 + 재질문 을 동시에 하면 사용자가 직전 turn 에서 이미 다음 정보를 줘도 LLM 이 "안내 단계" 로 인식해 재질문 루프에 빠짐.
+
+## 입력 형식 검증의 max-retry escape (rubric 6번 - 무한 반복 회피)
+
+extraction / 본인확인용 conversation 노드에서 형식 (예: 8자리 숫자, 영문/숫자 조합) 을 엄격히 검증하다 보면 사용자가 같은 입력을 N 번 반복해도 transition 이 안 빠지는 무한 루프가 자주 발생한다. 모든 형식 검증 노드는 **재질문 최대 횟수 + escape transition** 을 두라.
+
+- prompt 안에 "재질문은 2회까지만. 3회째에는 'tr_format_invalid' 로 진행" 같이 명시한다.
+- transition conditions 에 `format_invalid_max_retry` 분기를 두고 transferCall 또는 endCall (안내 멘트 포함) 로 보낸다.
+- 형식 검증을 너무 strict 하게 두지 말 것 — 시나리오가 "8자리 증권번호" 라고 해도 사용자는 "PA12345678" 같이 prefix 를 붙여 말할 수 있다. extraction 노드가 prefix 를 허용하도록 prompt 에 적거나 conversation transition 을 넓게 두기.
+
 ## Prompt guardrails
 
 generated 노드에는 아래를 짧게 포함한다.

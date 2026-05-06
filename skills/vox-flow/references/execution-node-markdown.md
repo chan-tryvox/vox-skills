@@ -81,6 +81,13 @@ api 결과를 보고 사용자에게 추가 입력을 받아야 하면, `isSkipU
 
 위 4 패턴은 `validate_flow_data` 호출 시 `API_CHAIN_RACE` 에러로 거부된다. 우회하지 말고 pattern A/B/C 로 재설계할 것.
 
+**Fan-in anti-pattern (위 규칙의 빈번한 위반):** 여러 api 노드가 하나의 공통 api 노드 (예: `api_confirm`) 로 합류하는 경우, 모든 들어오는 edge 가 `api → api` 직결이 되어 거부된다. 코드 재사용을 위해 fan-in 하고 싶더라도 이 패턴은 사용 금지.
+
+올바른 fan-in 처리:
+- (가장 단순) 합류 지점의 api 로직을 각 선행 api 노드의 success path 에 inline 한다 — 즉, `api_confirm` 을 별도 노드로 두지 말고 각 선행 api 자체가 confirm 동작까지 수행하도록 apiConfiguration 을 합친다.
+- 또는 합류 지점에 `condition` 노드를 두고 그 condition 결과에 따라 단일 api_confirm 으로 보낸다 (선행 api 가 condition 노드의 변수 평가 대상). condition → api 는 race 없음.
+- 또는 user input 을 받는 conversation 노드 (`isSkipUserResponse: false`) 를 합류 지점에 두어 race 없이 sync.
+
 ### `logicalTransitions` 작성 시 mock-friendly 패턴 (scenario_test 통과를 위한 권장)
 
 api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boolean 또는 `exists` 연산을 우선 사용**한다. 임의 문자열 (예: `equals "matched"`, `equals "approved"`) 비교는 scenario_test 의 mock 응답과 mismatch 되어 자주 fallback 으로 빠진다.
@@ -94,7 +101,37 @@ api 노드의 `logicalTransitions[]` 에서 응답 변수와 비교할 때 **boo
 - `equals "matched"` / `equals "approved"` / `equals "ok"` 같이 응답 본문의 정확한 문자열 매칭
 - `contains "성공"` 같이 자연어 substring 매칭
 
-따라서 `responseVariables` 도 jsonPath 를 boolean 필드 (`$.verified`, `$.exists`, `$.matched`, `$.confirmed`) 또는 id 필드 (`$.data.reservation_id`, `$.data.id`) 위주로 매핑하라. 예: `{ "variableName": "card_verified", "jsonPath": "$.verified" }` + `equals true` 비교.
+#### responseVariables jsonPath 는 mock-guaranteed key 만 (분기 변수 한정)
+
+분기 (`logicalTransitions`) 에 사용하는 responseVariable 의 `jsonPath` 는 **반드시 scenario_test mock 이 보장하는 generic 필드** 만 쓴다. mock body 는 모든 도메인에서 동일하게 다음 key 들을 채워준다 (`true` / `'mock_xxx'`):
+
+- top-level boolean: `$.success`, `$.verified`, `$.exists`, `$.found`, `$.available`, `$.confirmed`, `$.cancelled`, `$.processed`, `$.matched`, `$.valid`, `$.active`, `$.ok`
+- `$.data` 안에도 동일 boolean 들이 있음 (`$.data.success`, `$.data.exists`, ...)
+- generic id: `$.data.id` (값: `'mock_001'`), `$.data.reservation_id`, `$.data.booking_id`, `$.data.customer_id`, `$.data.card_id`, `$.data.employee_id`
+
+도메인 특화 id (`$.data.order_id`, `$.data.policy_number`, `$.data.booking_ref`, `$.data.claim_id`, ...) 는 **mock 에 없으므로 분기 변수로 쓰면 항상 fallback 으로 빠진다.** 이런 도메인 id 가 정말 필요하면 `$.data.id` 로 받아와 변수명만 도메인스럽게 짓거나 (`order_id = $.data.id`), 또는 별도 (분기에 안 쓰는) responseVariable 로 받기.
+
+예시 — 주문 조회 api:
+
+```jsonc
+// BAD: scenario_test 에서 항상 fallback
+"responseVariables": [{ "variableName": "order_id", "jsonPath": "$.data.order_id" }],
+"logicalTransitions": [
+  { "id": "lt_order_found", "condition": { "logicalOperator": "and",
+    "conditions": [{ "variable": "order_id", "operator": "exists" }] } }
+]
+
+// GOOD: mock 이 보장하는 key 사용
+"responseVariables": [
+  { "variableName": "order_found",   "jsonPath": "$.found" },
+  { "variableName": "order_id",      "jsonPath": "$.data.id" },     // generic id
+  { "variableName": "order_summary", "jsonPath": "$.data.summary" } // generic
+],
+"logicalTransitions": [
+  { "id": "lt_order_found", "condition": { "logicalOperator": "and",
+    "conditions": [{ "variable": "order_found", "operator": "equals", "value": true }] } }
+]
+```
 
 ### Edge ↔ transition id 일관성 규칙 (자주 틀림)
 
