@@ -41,7 +41,7 @@ Flow는 prompt agent의 확장이므로, **공통 음성 UX 규칙은 `vox-agent
 1. **시각화 (flow-sketch)**: 스크립트 → Mermaid flowchart + 노드 요약 테이블
 2. **상세 설계 (node creation)**: 확정된 차트의 각 노드 → flow node markdown. `node-creation.md`를 시작점으로 읽고 필요한 노드 계열 reference만 추가로 읽는다.
 3. **리뷰 (flow review)**: 체크리스트 기반 검증, CRITICAL/WARN/INFO 분류
-4. **dry-run 검증 (validate_flow_data)**: JSON 산출물이 준비되면 MCP `validate_flow_data` 를 호출해 결과를 사용자에게 한두 줄로 요약하고, errors / warnings 처리는 [Response Handling](#response-handling) 을 따른다. errors 가 비었을 때에만 `create_agent` / `update_agent` 호출.
+4. **dry-run 검증 + 실제 agent 생성 (validate_flow_data → create/update)**: JSON 산출물은 디버깅용 중간 산출물일 뿐이다. 사용자가 flow agent 생성/검증을 요청했으면 MCP `validate_flow_data` 를 호출하고, errors 가 비었을 때 MCP `create_agent` / `update_agent` 로 실제 agent 를 만든 뒤 `get_agent` 로 round-trip 확인한다. 결과는 payload path 가 아니라 실제 `agent_id` 기준으로 보고한다. errors / warnings 처리는 [Response Handling](#response-handling) 을 따른다.
 
 사용자가 시각화만 요청하면 1단계만. "노드로 변환해줘"면 1→2단계. "리뷰해줘"면 3단계. JSON 으로 보내려면 4단계까지.
 
