@@ -66,7 +66,7 @@ api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation
 
 ## Node Type 요약
 
-아래 표는 설계 대화를 위한 개념 요약이다. 실제 `flow_data` JSON 을 작성할 때는 이 표나 로컬 reference 를 schema source 로 쓰지 말고, 먼저 MCP `get_schema(namespace='flow-schema', schema_type='flow-data')` 를 호출해 현재 node type, field, enum, required 여부를 확인한다.
+아래 표는 설계 대화를 위한 개념 요약이다. 실제 `flow_data` JSON 을 작성할 때는 이 표나 로컬 reference 를 schema source 로 쓰지 않는다. 먼저 MCP `get_schema(namespace='flow-schema', schema_type='flow-data')` 로 graph envelope 를 확인하고, `list_schemas(namespace='flow-schema', category='flow-node')` 와 `get_schema(namespace='flow-schema', schema_type='node-api')` 같은 node type별 schema 로 현재 field, enum, required 여부를 확인한다.
 
 | Node | 용도 |
 |------|------|
@@ -82,7 +82,7 @@ api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation
 | `endCall` | 통화 종료 |
 | `note` | 메모 (실행 없음) |
 
-각 노드의 의미/사용 판단 → `node-types.md` 참조. Deprecated: `function` (→ `tool`), `knowledge` (→ conversation node-level). 정확한 schema 는 항상 MCP schema endpoint 결과를 따른다.
+각 노드의 의미/사용 판단 → `node-types.md` 참조. Deprecated: `function` (→ `tool`), `knowledge` (→ conversation node-level). 정확한 schema 는 항상 MCP schema endpoint 결과를 따른다. `tier` 는 api-server validation/autofix 내부 분류일 뿐이며, flow 작성 모델로 사용자에게 노출하지 않는다.
 
 ## 설계 패턴
 
@@ -97,7 +97,7 @@ api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation
 ## Core Operating Rules
 
 1. **공통 규칙 먼저** — flow에서도 실패 원인의 대부분은 음성 UX 위반(장문 발화, 부정확한 사실)이므로, `vox-agents`의 voice-ai-playbook 규칙(사실성 우선, 트레이드오프, 런타임 vs 개발 산출물 구분)이 flow에도 동일하게 적용된다.
-2. node type, field, enum, required 여부를 추측하지 않는다 — `flow_data` 작성 직전에 `get_schema(namespace='flow-schema', schema_type='flow-data')` 를 호출하고 그 결과를 기준으로 JSON 을 만든다.
+2. node type, field, enum, required 여부를 추측하지 않는다 — `flow_data` 작성 직전에 `get_schema(namespace='flow-schema', schema_type='flow-data')` 로 graph envelope 를 확인하고, 실제 노드 JSON 은 `list_schemas(namespace='flow-schema', category='flow-node')` 로 찾은 `node-{type}` schema 를 기준으로 만든다.
 
 > **Top-level `type: "flow"` 누락 = silent 실패.** `create_agent` 호출 시 top-level 에 `type: "flow"` 가 없으면 백엔드는 default `single_prompt` 로 저장하고 `flow_data` 는 null 로 떨어진다. JSON 응답이 200 이어도 round-trip 시 flow_data 가 비어 있다면 가장 먼저 `type` 누락을 의심한다.
 
@@ -107,14 +107,14 @@ api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation
 5. 변수 이름은 snake_case, 의미가 명확한 이름 사용 — condition node와 변수 렌더러가 snake_case를 전제로 동작하며, 모호한 이름(val1, temp)은 노드 간 전달 시 혼동을 일으킨다.
 6. 전환조건에 "다음 단계 이름"을 쓰지 않는다 — exit 조건만 정의해야 노드 순서가 바뀌어도 LLM이 올바르게 판단한다.
 7. **산출물 경로는 두 가지** — (a) 대시보드 flow editor 에 사람이 직접 입력하는 노드 markdown, (b) v3 REST API (`PATCH /v3/agents/{id}` with `flow_data`) 또는 동등한 vox.ai MCP `create_agent` / `update_agent` 의 `flow_data` 파라미터로 보내는 JSON. JSON surface 는 schema endpoint 가 authoritative 하며, 수정은 항상 **전체 교체** 방식 — 기존 노드 일부만 patch 하지 않고 nodes/edges 전체를 다시 보낸다.
-8. **Schema endpoint 우선** — `references/node-types.md` 는 node 선택과 실수 방지 playbook 이다. 실제 필드 목록을 복사하지 말고, 작업 중 받은 `get_schema` 결과를 기준으로 `flow_data` 를 작성한다. 전송 후 `get_agent` 로 round-trip 확인해 unknown field drop 을 잡는다.
+8. **Schema endpoint 우선** — `references/node-types.md` 는 node 선택과 실수 방지 playbook 이다. 실제 필드 목록을 복사하지 말고, 작업 중 받은 `flow-data` + `node-{type}` schema 결과를 기준으로 `flow_data` 를 작성한다. 전송 후 `get_agent` 로 round-trip 확인해 unknown field drop 을 잡는다.
 9. **flow_data 전송 전 dry-run 먼저** — `create_agent` / `update_agent` 의 `flow_data` 를 보내기 전, MCP `validate_flow_data(flow_data=...)` 를 먼저 호출해 dry-run 한다. 응답의 `errors` 가 비었을 때만 진짜 호출하고, `warnings` / `fixed_flow_data` / `validation_message` 가 있으면 사용자에게 한두 줄로 요약 전달한다. 정확한 API 응답 shape 해석은 MCP가 담당하므로 skill 안에서 field contract 를 외워 맞추지 않는다.
 10. **nested config default 는 백엔드가 채운다** — 인증/헤더/바디 옵션처럼 schema default 가 있는 nested config 를 LLM 이 외워 채울 필요 없다. URL, 전환 대상, 도구 ID처럼 시나리오가 결정해야 하는 실제 값만 명시하고, 나머지는 schema endpoint 와 MCP dry-run 결과를 따른다.
 
 ## Boundary Rule
 
 - **Runtime 에서 문제나는 케이스**: api-server validation / autofix 가 막거나 보강한다. skill 은 같은 검증 로직을 복제하지 않는다.
-- **API layer 설명과 정상 작동 보장**: MCP `get_schema`, `validate_flow_data`, `autofix_flow_data`, `create_agent`, `update_agent` 가 담당한다. skill 은 이 도구들을 호출하는 순서와 결과 처리만 안내한다.
+- **API layer 설명과 정상 작동 보장**: MCP `list_schemas`, `get_schema`, `validate_flow_data`, `autofix_flow_data`, `create_agent`, `update_agent` 가 담당한다. skill 은 이 도구들을 호출하는 순서와 결과 처리만 안내한다.
 - **운영 팁 / 시나리오 분석 / 생성**: 이 skill 이 담당한다. 사용자 경험, fallback 안내 문구, 노드 수 줄이기, scenario_test 통과 패턴 같은 판단을 여기에 둔다.
 
 ## Response Handling
@@ -159,7 +159,9 @@ MCP가 자동 보정 안내 텍스트를 제공하면 그대로 전달한다. �
 - `list_agents` — 에이전트 목록
 - `validate_flow_data(flow_data=...)` — flow_data dry-run. 응답의 `errors` 가 비었을 때만 `create_agent` / `update_agent` 를 호출한다. 서버/도구 버전에 따라 `fixed_flow_data` / `warnings` 가 있으면 그 보정 결과와 안내를 사용자에게 전달한다.
 - `autofix_flow_data(flow_data, apply_fixes=false|true)` — safe deterministic graph fix 를 dry-run / apply 한다. 도메인 값과 recovery edge 의 UX 의도는 자동 fix 대상이 아니므로, `remaining_errors` 와 runtime review 결과를 보고 설계자가 결정한다.
-- `get_schema(namespace='flow-schema', schema_type='flow-data', detail='standard'|'minimal')` — flow_data JSON Schema. `detail='minimal'` 은 description / title / examples 를 제거한 lean payload (≈40-50% token savings) — schema shape 가 익숙할 때만 사용. `create_agent` / `update_agent` / `update_agent_partial` 의 `flow_data` 구성 전에 호출.
+- `list_schemas(namespace='flow-schema', category='flow-node')` — MCP 가 노출하는 n8n-style flow node catalog. 특정 node JSON 을 작성하기 전에 사용 가능한 `node-{type}` schema 를 확인한다.
+- `get_schema(namespace='flow-schema', schema_type='flow-data', detail='standard'|'minimal')` — flow graph envelope JSON Schema. nodes / edges / viewport 같은 graph-level shape 확인용이다.
+- `get_schema(namespace='flow-schema', schema_type='node-api', detail='standard'|'minimal')` — node type별 JSON Schema. `node-conversation`, `node-sendSms`, `node-tool` 등 실제 사용할 node type 에 맞춰 호출한다. `detail='minimal'` 은 description / title / examples 를 제거한 lean payload (≈40-50% token savings) — schema shape 가 익숙할 때만 사용. `create_agent` / `update_agent` / `update_agent_partial` 의 `flow_data` 구성 전에 호출.
 
 ### Docs (vox.ai docs / vox-docs)
 - `docs/build/flow/overview` — 플로우 에이전트 개요

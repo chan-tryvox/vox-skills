@@ -1,14 +1,19 @@
 # Node Types: schema endpoint playbook
 
-이 파일은 node type 을 고르는 기준과 흔한 실수를 정리한다. 실제 `flow_data` 의 node type, field, enum, required 여부는 이 파일에 박아두지 않는다. 작업 직전에 MCP schema endpoint 를 호출해 현재 API 계약을 확인한다.
+이 파일은 node type 을 고르는 기준과 흔한 실수를 정리한다. 실제 `flow_data` 의 node type, field, enum, required 여부는 이 파일에 박아두지 않는다. 작업 직전에 MCP schema endpoint 를 호출해 현재 API 계약을 확인한다. `tier` 는 api-server validation/autofix 내부 용어이므로 작성자에게는 node catalog 방식으로 설명한다.
 
 ## Authoritative schema
 
-MCP 로 flow JSON 을 만들거나 수정하기 전에 항상 호출한다.
+MCP 로 flow JSON 을 만들거나 수정하기 전에 graph envelope 와 node type별 schema 를 나눠 확인한다.
 
 ```text
 get_schema(namespace="flow-schema", schema_type="flow-data")
+list_schemas(namespace="flow-schema", category="flow-node")
+get_schema(namespace="flow-schema", schema_type="node-api")
+get_schema(namespace="flow-schema", schema_type="node-sendSms")
 ```
+
+`flow-data` 는 nodes / edges / viewport 같은 graph-level shape 확인용이다. 실제 `node.data` field 는 `node-api`, `node-conversation`, `node-condition`, `node-sendSms` 같은 node type별 schema 를 따른다. 사용하지 않는 node schema 까지 모두 읽지 말고, 이번 flow 에 들어가는 node type 만 가져온다.
 
 agent `data` 도 같이 작성해야 하면 별도로 호출한다.
 
@@ -43,7 +48,7 @@ schema 결과를 받은 뒤에만 `create_agent(type="flow", data=..., flow_data
 
 ## Edge and transition rules
 
-- flow_data 의 정확한 node / edge field shape 는 MCP `get_schema` 결과를 따른다.
+- flow_data 의 정확한 graph / edge field shape 는 MCP `flow-data` schema 를 따르고, node data field shape 는 node type별 schema 를 따른다.
 - 분기 의도는 사람이 정한다. API가 일부 fallback transition 을 보강할 수 있어도, 실패 시 어느 안내/재시도/전환 노드로 보낼지는 skill 이 시나리오 기준으로 설계해야 한다.
 - fallback transition/condition 은 API가 보강할 수 있지만, 필요한 fallback path 의 target 은 자동으로 정할 수 없다. 사용자에게 안내해야 하는 실패 경로는 `edges` 안에 명시한다.
 - layout / handle / viewport 같은 필드는 기억으로 작성하지 않고 schema endpoint 와 round-trip 결과로 확인한다.
@@ -60,7 +65,7 @@ schema 결과를 받은 뒤에만 `create_agent(type="flow", data=..., flow_data
 
 ## Review checklist
 
-1. `get_schema(namespace="flow-schema", schema_type="flow-data")` 를 호출했는가?
+1. `get_schema(namespace="flow-schema", schema_type="flow-data")` 와 필요한 `node-{type}` schema 를 호출했는가?
 2. schema 결과에 없는 field 를 과거 문서나 UI 기억만으로 넣지 않았는가?
 3. fallback, failure, else path 를 필요한 `edges` 로 명시했는가?
 4. dry-run 절차 (`validate_flow_data` → errors 없음 확인 → 보정/경고 메시지 전달) 를 거쳤는가? 자세한 응답 처리 룰은 SKILL.md [Response Handling](../SKILL.md#response-handling).

@@ -2,7 +2,7 @@
 
 콜센터/OB/CS 스크립트나 확정된 flowchart 를 `## name / ## content / ## transition conditions` 형식의 flow-node markdown 으로 변환한다.
 
-이 문서의 출력은 **대시보드 입력/리뷰용 설계 markdown** 이다. MCP/API `flow_data` JSON 이 아니다. markdown 을 JSON 으로 변환할 때는 반드시 `get_schema(namespace="flow-schema", schema_type="flow-data")` 를 호출하고, schema endpoint 결과의 field/enum/required 여부를 따른다.
+이 문서의 출력은 **대시보드 입력/리뷰용 설계 markdown** 이다. MCP/API `flow_data` JSON 이 아니다. markdown 을 JSON 으로 변환할 때는 반드시 `get_schema(namespace="flow-schema", schema_type="flow-data")` 로 graph envelope 를 확인하고, `list_schemas(namespace="flow-schema", category="flow-node")` / `get_schema(namespace="flow-schema", schema_type="node-{type}")` 로 실제 node data field/enum/required 여부를 따른다.
 
 ## Read only what you need
 
@@ -91,8 +91,9 @@
 이 markdown 을 MCP/API `flow_data` 로 변환하기 전에는 아래 순서를 따른다.
 
 1. `get_schema(namespace="flow-schema", schema_type="flow-data")` 호출.
-2. agent `data` 도 보낼 경우 `get_schema(namespace="agent-schema", schema_type="agent-data-create")` 또는 `agent-data-update` 호출.
-3. `node-creation.md`의 markdown 용어를 JSON field 로 직접 복사하지 않는다.
-4. fallback/실패/else path 는 자동 생성된다고 가정하지 말고 `edges` 로 명시한다.
-5. `validate_flow_data(flow_data=...)` 로 dry-run. `errors === []` 일 때만 다음 단계로 간다. `warnings` 는 사용자에게 한 줄로 전달한다.
-6. `create_agent` / `update_agent` 후 `get_agent` 로 round-trip 확인한다. MCP 응답에 자동 보정 안내가 있으면 함께 전달한다.
+2. `list_schemas(namespace="flow-schema", category="flow-node")` 로 node schema catalog 확인 후, 이번 flow 에 들어가는 node type 의 `get_schema(namespace="flow-schema", schema_type="node-{type}")` 호출.
+3. agent `data` 도 보낼 경우 `get_schema(namespace="agent-schema", schema_type="agent-data-create")` 또는 `agent-data-update` 호출.
+4. `node-creation.md`의 markdown 용어를 JSON field 로 직접 복사하지 않는다.
+5. fallback/실패/else path 는 자동 생성된다고 가정하지 말고 `edges` 로 명시한다.
+6. `validate_flow_data(flow_data=...)` 로 dry-run. `errors === []` 일 때만 다음 단계로 간다. `warnings` 는 사용자에게 한 줄로 전달한다.
+7. `create_agent` / `update_agent` 후 `get_agent` 로 round-trip 확인한다. MCP 응답에 자동 보정 안내가 있으면 함께 전달한다.

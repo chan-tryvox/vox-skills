@@ -2,14 +2,16 @@
 
 vox.ai flow agent 의 구조와 설계 원칙을 이해하기 위한 가이드. flow 를 처음 설계하거나, 기존 flow 를 수정할 때 읽는다.
 
-본 가이드는 **v3 API / vox.ai MCP `flow_data` workflow** 기준이다. 정확한 node type, data field, enum, required 여부는 문서에 고정하지 않고 MCP schema endpoint 결과를 따른다.
+본 가이드는 **v3 API / vox.ai MCP `flow_data` workflow** 기준이다. 정확한 node type, data field, enum, required 여부는 문서에 고정하지 않고 MCP schema endpoint 결과를 따른다. `tier` 는 api-server 내부 검증 단계 이름이고, flow 작성자는 n8n-style node catalog 처럼 type별 schema 를 조회해서 쓴다.
 
 ## Schema-first workflow
 
-flow JSON 을 작성하거나 수정할 때는 먼저 현재 schema 를 가져온다.
+flow JSON 을 작성하거나 수정할 때는 먼저 graph envelope schema 와 이번 flow 에서 쓸 node type별 schema 를 가져온다.
 
 ```text
 get_schema(namespace="flow-schema", schema_type="flow-data")
+list_schemas(namespace="flow-schema", category="flow-node")
+get_schema(namespace="flow-schema", schema_type="node-api")
 ```
 
 agent `data` 도 같이 다루면 필요한 schema 를 별도로 가져온다.
@@ -19,7 +21,7 @@ get_schema(namespace="agent-schema", schema_type="agent-data-create")
 get_schema(namespace="agent-schema", schema_type="agent-data-update")
 ```
 
-이 문서와 `node-types.md` 는 설계 원칙과 실수 방지용이다. 실제 payload 는 schema endpoint 응답을 기준으로 만들고, 전송 후 `get_agent` 로 round-trip 확인한다.
+이 문서와 `node-types.md` 는 설계 원칙과 실수 방지용이다. 실제 payload 는 `flow-data` + `node-{type}` schema endpoint 응답을 기준으로 만들고, 전송 후 `get_agent` 로 round-trip 확인한다.
 
 ## v3 Flow Schema
 
@@ -42,7 +44,7 @@ FlowData {
 FlowNode {
   id: string                  // flow 안에서 unique. 1..64 chars.
   type: NodeType              // begin | conversation | extraction | condition | api | tool | sendSms | transferCall | transferAgent | endCall | knowledge | function | note
-  data: NodeData              // type 별 schema 는 schema endpoint 기준
+  data: NodeData              // type 별 schema 는 node-{type} schema endpoint 기준
   position: { x: number, y: number }   // 픽셀 좌표 — 누락 시 NODE_POSITION_REQUIRED 로 reject
 }
 ```

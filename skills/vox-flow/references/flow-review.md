@@ -79,8 +79,8 @@ flow agent 설계물(flowchart + 노드 상세 설계)을 체크리스트 기반
 
 | ID | 심각도 | 항목 | 판단 기준 |
 |----|--------|------|----------|
-| D1 | CRITICAL | schema endpoint 미확인 | MCP/API `flow_data` JSON 을 만들거나 수정하면서 `get_schema(namespace="flow-schema", schema_type="flow-data")` 결과를 확인하지 않은 경우 |
-| D2 | CRITICAL | API field 추측 | MCP `get_schema` 결과 없이 기억이나 과거 예시만으로 JSON field 를 작성 |
+| D1 | CRITICAL | schema endpoint 미확인 | MCP/API `flow_data` JSON 을 만들거나 수정하면서 `flow-data` graph schema 와 필요한 `node-{type}` schema 를 확인하지 않은 경우 |
+| D2 | CRITICAL | API field 추측 | MCP `get_schema` / `list_schemas` 결과 없이 기억이나 과거 예시만으로 JSON field 를 작성 |
 | D3 | CRITICAL | fallback edge 누락 | 실패/else/default path 가 필요한데 `flow_data.edges` 에 명시하지 않고 자동 생성된다고 가정 |
 | D4 | WARN | round-trip 미확인 | `create_agent` / `update_agent` 후 `get_agent` 로 unknown field drop 여부를 확인하지 않음 |
 | D5 | WARN | agent data schema 미확인 | agent `data` 를 함께 보냈는데 `agent-schema` create/update schema 를 확인하지 않음 |
