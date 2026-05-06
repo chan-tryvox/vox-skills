@@ -62,6 +62,7 @@ api-server 는 runtime 에서 깨지기 쉬운 일부 graph shape 를 validation
 - fallback/recovery edge 의 사용자 경험 — API가 fallback transition 은 만들 수 있어도 어떤 안내/재시도/전환 노드로 보낼지는 설계자가 정해야 함
 - sendSms fail 분기는 성공 분기와 다른 wrap-up 으로 보내고 사용자에게 SMS 실패를 고지 (자세한 패턴은 `execution-node-markdown.md`)
 - 구체적 일자/시간을 한 노드에서 묶어 받기 (turn 절약)
+- API 가 availability / eligibility 만 확인하는 단계에서는 고객이 요청한 날짜, 시간, 수량, 수신자 정보를 confirmation 과 wrap-up 의 source of truth 로 유지하기. API 가 같은 값을 명시적으로 echo 하지 않는 한 generic 응답 필드(`$.data.date`, `$.data.time` 등)로 고객 요청값을 덮어쓰지 않는다.
 - 마무리 발화 + 작별 인사 (rubric 평가 시 필수)
 
 ## Node Type 요약
