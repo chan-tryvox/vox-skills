@@ -37,7 +37,7 @@ install_claude() {
   echo
   info "Next steps in your Claude Code chat:"
   dim "    /reload-plugins              # load plugin into the current session"
-  dim "    /vox-ai:vox-onboarding       # start the first voice agent"
+  dim "    \$vox-ai:vox-onboarding       # start the first voice agent"
 }
 
 install_codex() {
