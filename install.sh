@@ -56,7 +56,7 @@ install_codex() {
   info "Next steps in Codex CLI:"
   dim "    /plugin                      # install vox-ai from the list"
   dim "    restart codex-cli"
-  dim "    /vox-ai:vox-onboarding       # start the first voice agent"
+  dim "    \$vox-ai:vox-onboarding       # start the first voice agent"
 }
 
 case "$TARGET" in
