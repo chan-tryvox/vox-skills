@@ -26,6 +26,10 @@ install_claude() {
     err "claude CLI not found in PATH. Install Claude Code first: https://claude.com/code"
     return 1
   fi
+  if ! claude --version >/dev/null 2>&1; then
+    err "claude is not runnable in this environment."
+    return 1
+  fi
   info "Installing vox.ai for Claude Code…"
   claude plugin marketplace add vox-public/vox-skills
   claude plugin install vox-ai@vox-ai
@@ -39,6 +43,10 @@ install_claude() {
 install_codex() {
   if ! command -v codex >/dev/null 2>&1; then
     err "codex CLI not found in PATH. Install OpenAI Codex CLI first."
+    return 1
+  fi
+  if ! codex --version >/dev/null 2>&1; then
+    err "codex is not runnable in this environment."
     return 1
   fi
   info "Registering vox.ai marketplace for Codex CLI…"
