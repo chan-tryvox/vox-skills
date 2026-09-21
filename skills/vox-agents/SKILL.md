@@ -65,7 +65,7 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 When the user selects GPT-Live, use the following contract and read
 `references/gpt-live-agent-data.json` before assembling a payload:
 
-- Treat an absent `data.runtime` and `{ "type": "pipeline" }` as the existing pipeline behavior.
+- On create, treat an absent `data.runtime` and `{ "type": "pipeline" }` as the existing pipeline behavior. On PATCH/update, an omitted `runtime` preserves the current runtime, including `gpt_live`.
 - Represent GPT-Live as `{ "type": "gpt_live", "model": "gpt-live-1", "voice": ... }` under `data.runtime`.
 - Use `{ "type": "builtin", "name": "marin" }` as a native built-in voice example; it is not a claim that marin is the only supported name or the universal default. Use `{ "type": "custom", "id": "voice_..." }` only as an authorized OpenAI-native schema/catalog reference that passes the current organization-visible ownership checks; an arbitrary ID grants no access. The current execution path supports built-in voices only; custom references remain non-executable until an organization-scoped runtime mapping exists. Do not promise provisioning, migration, exact voice identity, or production readiness.
 - Keep `data.llm` as the selectable text LLM for shared chat and live business work. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new GPT-Live create, require `data.llm.model`; select it from `list_llm_models`.
@@ -74,9 +74,9 @@ When the user selects GPT-Live, use the following contract and read
 - Reads may return `data.stt` or `data.voice` as `null` or omit them for GPT-Live. Check `data.runtime` first and do not treat absent legacy fields as a migration failure.
 - Preserve flow node LLM overrides (`flow.nodes[].data.llm`) when changing agent-level runtime settings. Agent-level `data.llm` and node-level overrides are separate contracts.
 
-Keep this contract separate from the API-generated OpenAPI files. If the API schema changes,
-coordinate regeneration from the API worker rather than inventing or hand-editing a global
-schema in this skill.
+Keep this contract separate from API-generated OpenAPI artifacts. Use the API-owned schema
+generation pipeline for schema changes; do not invent or hand-edit generated schema in this
+skill.
 
 ## Workflow
 
