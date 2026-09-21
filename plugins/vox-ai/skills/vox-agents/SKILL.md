@@ -1,6 +1,6 @@
 ---
 name: vox-agents
-description: "Use whenever the user is building or diagnosing a vox.ai prompt-based (`single_prompt`) voice agent — including its system prompt, optional Manuals (Trigger/content/linked chains), agent.data, and runtime behavior. Manuals are a feature of prompt-based agents, not a separate agent type. For `flow` agent design, use vox-flow instead. Trigger on '프롬프트 작성해줘', '매뉴얼 만들어줘', '프롬프트 고쳐줘', '에이전트가 이상하게 답해', '음성 에이전트', or any vox prompt-agent authoring question."
+description: "Use whenever the user is building or diagnosing a vox.ai prompt-based (`single_prompt`) voice agent — including its system prompt, optional Manuals (Trigger/content/linked chains), agent.data, pipeline or GPT-Live runtime behavior, and runtime transitions. Manuals are a feature of prompt-based agents, not a separate agent type. For `flow` agent design, use vox-flow instead. Trigger on '프롬프트 작성해줘', '매뉴얼 만들어줘', '프롬프트 고쳐줘', 'GPT-Live', 'gpt_live', '실시간 음성 런타임', '에이전트가 이상하게 답해', '음성 에이전트', or any vox prompt-agent authoring question."
 license: MIT
 compatibility: "Requires the vox MCP server (https://mcp.tryvox.co/mcp, OAuth login on first tool call), registered by the vox-ai plugin. Works in Claude Code, Codex, and any agentskills.io-compatible client; the vox CLI bundles the same skill offline."
 ---
@@ -37,6 +37,7 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 
 - **voice-ai-playbook.md** — 음성 UX 핵심 규칙, 트레이드오프 우선순위. **새 에이전트 설계 시 가장 먼저 읽기.** See [references/voice-ai-playbook.md](references/voice-ai-playbook.md)
 - **default-agent-data.json** + **agent-data-reference.md** — agent.data root 구조 예시(JSON, 복사용 기본값 아님) + MCP 동작 규칙(md). **MCP로 에이전트를 생성·수정할 때 둘 다 읽기.** See [references/default-agent-data.json](references/default-agent-data.json), [references/agent-data-reference.md](references/agent-data-reference.md)
+- **gpt-live-agent-data.json** — GPT-Live create/update payload examples and transition matrix. **Read when the user selects GPT-Live or changes `data.runtime`.** See [references/gpt-live-agent-data.json](references/gpt-live-agent-data.json)
 - **ivr-navigation-best-practice.md** — IVR 메뉴 탐색, DTMF 전략, send_dtmf 프롬프팅. **에이전트가 ARS/IVR을 통과해야 하는 시나리오에서 읽기.** See [references/ivr-navigation-best-practice.md](references/ivr-navigation-best-practice.md)
 - **voice-ai-prompt-template.md** — 한국어 프롬프트 템플릿. **신규 프롬프트 작성 시 복사해 사용.** See [references/voice-ai-prompt-template.md](references/voice-ai-prompt-template.md)
 - **voice-ai-prompt-diagnosis.md** — 실패 사례 원인 진단. **에이전트가 이상하게 동작할 때 읽기.** See [references/voice-ai-prompt-diagnosis.md](references/voice-ai-prompt-diagnosis.md)
@@ -58,6 +59,24 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 6. **진단 → 리팩터링 핸드오프**: diagnosis에 `failure_modes`와 `change_requests`가 반드시 포함, revision은 `change_requests`를 근거로만 변경한다 — 근거 없는 재설계는 기존 동작을 깨뜨린다.
 7. **MCP 실행 주의** — 유저가 "적용/업데이트"를 명시했을 때만 실행. builtInTools/toolIds가 전체 교체 방식이라 실수로 실행하면 기존 설정이 날아간다. `agent-data-reference.md` 참조.
 8. **기본값은 서버가 채운다** — 기본값의 SSOT 는 api-server 이고, get_schema 는 shape 만 주고 기본 *값* 은 주지 않는다. 의도적으로 override 하지 않는 sub-schema(특히 `llm`, `voice`)는 보내지 말고 OMIT 해 서버 기본값을 적용한다. override 할 때만 허용 값을 `list_llm_models` / `list_voice_models` 로 조회하고 shape 는 `get_schema(namespace="agent-schema", schema_type="agent-data-create" | "agent-data-update", detail="minimal")` 로 확인한다. 한국어 STT 는 `stt.languages:["ko"]` 를 사용하고 `ko-KR` 은 `voice.language` 에만 쓴다. `speech.responsiveness` 는 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하며, "자연스러움" 명목으로 `0.8` / `0.9` 로 낮추지 않는다.
+
+## GPT-Live runtime contract
+
+When the user selects GPT-Live, use the following contract and read
+`references/gpt-live-agent-data.json` before assembling a payload:
+
+- Treat an absent `data.runtime` and `{ "type": "pipeline" }` as the existing pipeline behavior.
+- Represent GPT-Live as `{ "type": "gpt_live", "model": "gpt-live-1", "voice": ... }` under `data.runtime`.
+- Use `{ "type": "builtin", "name": "marin" }` as a native built-in voice example; it is not a claim that marin is the only supported name or the universal default. Use `{ "type": "custom", "id": "voice_..." }` only for an authorized OpenAI-native custom-voice reference that passes the current organization-visible catalog/ownership checks; an arbitrary ID grants no access. Do not promise provisioning, migration, exact voice identity, or production readiness.
+- Keep `data.llm` as the selectable text LLM for shared chat and live business work. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new GPT-Live create, require `data.llm.model`; select it from `list_llm_models`.
+- Put GPT-Live voice configuration in `data.runtime.voice`, never in the pipeline `data.voice` or a TTS-only field. A GPT-Live request must not include legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences that the current schema marks as legacy/incompatible; do not delete or copy the whole `data.speech` object by guesswork. Inherited pipeline defaults are removed after effective merge.
+- A pipeline-to-live update retains the existing `data.llm` unless the user explicitly changes it. A live-to-pipeline update must explicitly provide pipeline `stt` and `voice`; never infer them from `runtime.voice`.
+- Reads may return `data.stt` or `data.voice` as `null` or omit them for GPT-Live. Check `data.runtime` first and do not treat absent legacy fields as a migration failure.
+- Preserve flow node LLM overrides (`flow.nodes[].data.llm`) when changing agent-level runtime settings. Agent-level `data.llm` and node-level overrides are separate contracts.
+
+Keep this contract separate from the API-generated OpenAPI files. If the API schema changes,
+coordinate regeneration from the API worker rather than inventing or hand-editing a global
+schema in this skill.
 
 ## Workflow
 

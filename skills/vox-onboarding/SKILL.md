@@ -48,6 +48,15 @@ vox.ai MCP 도구를 사용해 음성 AI 에이전트를 만들고 실제 전화
    - data: { prompt: { prompt: "<생성된 프롬프트>" } } — `prompt`는 문자열이 아니라 객체다. `firstLine`/`firstLineType`은 생략하면 서버 기본값이 적용된다. 프롬프트/설정은 top-level이 아니라 `data` 안에 넣는다(camelCase). 정확한 형태는 `get_schema(namespace="agent-schema", schema_type="agent-data-create", detail="minimal")`로 확인
    - llm/voice는 넣지 않는다 — `data.llm`/`data.voice`를 생략하면 서버가 기본값을 채운다. 사용자가 특정 음성·언어를 명시할 때만, 허용값을 `list_voice_models(language="ko-KR")`·`list_llm_models`로 조회해 지정한다.
 
+If the user explicitly asks for GPT-Live during onboarding, do not use the
+pipeline-only default above. Hand the payload design to `vox-agents` and require
+`data.llm.model` plus an explicit `data.runtime` object. Put the GPT-Live voice
+under `data.runtime.voice` (the `builtin` `marin` shape is an example), use a
+custom voice only when the current organization-visible catalog authorizes the
+native reference, and omit legacy pipeline `stt`, `voice`, `parallelSTT`, and
+schema-marked legacy speech preferences. Do not infer GPT-Live from a missing
+field or silently map `data.llm` to another model.
+
 생성 성공 시에만 다음 단계로 진행.
 실패 시: 에러 내용을 보여주고 수정 후 재시도.
 
