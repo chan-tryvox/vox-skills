@@ -1,0 +1,59 @@
+{
+  "_note": "Illustrative GPT-Live shapes only. Read the current agent schema and model catalog before sending a request. Replace every angle-bracket placeholder with a value returned by the API or MCP catalog.",
+  "create_single_prompt": {
+    "name": "업무 상담 에이전트",
+    "type": "single_prompt",
+    "data": {
+      "prompt": {
+        "prompt": "고객의 업무 문의를 짧고 정확하게 안내하세요."
+      },
+      "llm": {
+        "model": "<list_llm_models에서 선택한 text LLM>"
+      },
+      "runtime": {
+        "type": "gpt_live",
+        "model": "gpt-live-1",
+        "voice": {
+          "type": "builtin",
+          "name": "marin"
+        }
+      }
+    }
+  },
+  "custom_voice_runtime": {
+    "type": "gpt_live",
+    "model": "gpt-live-1",
+    "voice": {
+      "type": "custom",
+      "id": "voice_..."
+    }
+  },
+  "pipeline_update": {
+    "data": {
+      "llm": {
+        "model": "<existing-or-catalogued-text-llm>"
+      },
+      "runtime": {
+        "type": "pipeline"
+      },
+      "stt": {
+        "languages": ["ko"],
+        "speed": "high"
+      },
+      "voice": {
+        "id": "<list_voice_models에서 선택한 voice id>",
+        "provider": "<voice catalog provider>"
+      }
+    }
+  },
+  "contract_notes": [
+    "On create, a missing runtime and runtime.type=pipeline preserve existing pipeline behavior; on update, an omitted runtime preserves the current runtime.",
+    "A new GPT-Live create requires data.llm.model.",
+    "The pipeline-to-live update keeps the existing data.llm unless explicitly changed.",
+    "The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
+    "GPT-Live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked legacy/incompatible by the current schema; do not remove data.speech wholesale.",
+    "GPT-Live reads may omit stt/voice or return them as null.",
+    "A custom voice_ reference is illustrative only and must pass current organization-visible catalog/ownership checks; an arbitrary ID grants no access.",
+    "Flow node LLM overrides remain under flow.nodes[].data.llm."
+  ]
+}
