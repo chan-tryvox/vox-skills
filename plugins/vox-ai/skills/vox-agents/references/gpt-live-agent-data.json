@@ -20,7 +20,7 @@
       }
     }
   },
-  "custom_voice_runtime": {
+  "custom_voice_runtime_reference": {
     "type": "gpt_live",
     "model": "gpt-live-1",
     "voice": {
@@ -53,7 +53,7 @@
     "The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
     "GPT-Live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked legacy/incompatible by the current schema; do not remove data.speech wholesale.",
     "GPT-Live reads may omit stt/voice or return them as null.",
-    "A custom voice_ reference is illustrative only and must pass current organization-visible catalog/ownership checks; an arbitrary ID grants no access.",
+    "A custom voice_ reference is illustrative schema/catalog shape only, must pass current organization-visible ownership checks, and is not executable until an organization-scoped runtime mapping exists; an arbitrary ID grants no access.",
     "Flow node LLM overrides remain under flow.nodes[].data.llm."
   ]
 }

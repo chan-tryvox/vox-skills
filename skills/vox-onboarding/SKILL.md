@@ -51,9 +51,11 @@ vox.ai MCP 도구를 사용해 음성 AI 에이전트를 만들고 실제 전화
 If the user explicitly asks for GPT-Live during onboarding, do not use the
 pipeline-only default above. Hand the payload design to `vox-agents` and require
 `data.llm.model` plus an explicit `data.runtime` object. Put the GPT-Live voice
-under `data.runtime.voice` (the `builtin` `marin` shape is an example), use a
-custom voice only when the current organization-visible catalog authorizes the
-native reference, and omit legacy pipeline `stt`, `voice`, `parallelSTT`, and
+under `data.runtime.voice` (the `builtin` `marin` shape is an example). The
+current execution path supports built-in voices only; a custom voice is a
+schema/catalog reference that still requires an organization-scoped runtime
+mapping even when the current organization-visible catalog authorizes it. Omit
+legacy pipeline `stt`, `voice`, `parallelSTT`, and
 schema-marked legacy speech preferences. Do not infer GPT-Live from a missing
 field or silently map `data.llm` to another model.
 
