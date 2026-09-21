@@ -53,7 +53,7 @@ schema remains authoritative for field presence and validation.
 - On update, an omitted `runtime` preserves the current runtime, including `gpt_live`; it does not switch an agent back to pipeline.
 - GPT-Live uses `runtime: { "type": "gpt_live", "model": "gpt-live-1", "voice": ... }`.
 - The built-in voice example is `runtime.voice: { "type": "builtin", "name": "marin" }`. This is an example, not a claim that marin is the only supported name or the universal default.
-- A native custom voice is referenced only as `runtime.voice: { "type": "custom", "id": "voice_..." }` when the OpenAI-native reference passes the current organization-visible catalog/ownership checks. An arbitrary ID grants no access. Do not promise custom provisioning, migration, or exact voice identity.
+- A native custom voice is documented only as the schema/catalog reference `runtime.voice: { "type": "custom", "id": "voice_..." }` when the OpenAI-native reference passes the current organization-visible catalog/ownership checks. An arbitrary ID grants no access. The current execution path supports built-in voices only; custom references remain non-executable until an organization-scoped runtime mapping exists. Do not promise custom provisioning, migration, or exact voice identity.
 - `data.llm` remains the selectable text LLM for shared chat and live business work. A new GPT-Live create requires `data.llm.model` from `list_llm_models`; do not invent `chatLlm` or implicitly map `data.llm` to Luna.
 - Put GPT-Live voice configuration in `runtime.voice`, not pipeline `data.voice` or a TTS-only field. Do not send legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked legacy/incompatible by the current schema. Do not delete the whole `data.speech` object by guesswork.
 - A pipeline-to-live update retains the existing `data.llm` unless the user explicitly changes it. A live-to-pipeline update explicitly supplies pipeline `stt` and `voice`; never infer them from `runtime.voice`.
@@ -135,7 +135,7 @@ get_schema(namespace="tool-schema", schema_type="<built-in-tool-schema>")
 - `flow` agent 를 실사용 가능한 상태로 만들 때는 public `flow` 를 함께 보낸다. `flow_data` 는 legacy graph 이므로 새 작성에는 쓰지 않는다. 단순 shell agent 생성 여부는 API/MCP contract 를 확인한다.
 - flow graph 만 만들거나 검증하는 작업이면 `data` 를 생략한다. schema 에 보이는 기본값을 복사하려고 `stt.speed`, `llm`, `voice`, `speech` 를 채우지 않는다.
 - `data` 를 작성하기 전에 `get_schema(namespace="agent-schema", schema_type="agent-data-create")` 를 호출한다.
-- GPT-Live를 새로 만들 때는 `data.runtime`을 명시하고 `data.llm.model`을 반드시 포함한다. `runtime.voice`는 `builtin` 또는 현재 조직에 허용된 OpenAI 네이티브 `custom` 참조만 사용한다. pipeline용 `stt`/`voice`/`parallelSTT`/`sttPreference`/`voicePreference`와 호환되지 않는 legacy speech preference를 같은 입력에 복사하지 않는다.
+- GPT-Live를 새로 만들 때는 `data.runtime`을 명시하고 `data.llm.model`을 반드시 포함한다. `runtime.voice`는 `builtin`을 실행 설정으로 사용한다. OpenAI 네이티브 `custom`은 현재 조직에 허용된 schema/catalog 참조 형태일 뿐이며, 조직별 실행 매핑이 준비되기 전에는 실행 가능한 설정으로 사용하지 않는다. pipeline용 `stt`/`voice`/`parallelSTT`/`sttPreference`/`voicePreference`와 호환되지 않는 legacy speech preference를 같은 입력에 복사하지 않는다.
 
 ### update_agent
 
