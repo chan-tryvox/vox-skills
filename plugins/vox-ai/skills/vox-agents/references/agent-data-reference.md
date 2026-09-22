@@ -78,6 +78,12 @@ schema endpoint 결과를 따른다. 현재 기본 payload 에서는 `prompt`, `
 
 - `optOutSensitiveDataStorage`: `true`면 통화 데이터 저장 안함.
 
+### webhookSettings
+
+- `inboundCallWebhookSigningEnabled`: 인바운드 콜 웹훅 HMAC 서명 opt-in.
+- agent config boolean 은 nullable 이 아니다. 기본값은 필드를 생략해서 표현한다.
+- 끄려면 `false`, 켜려면 `true` 를 보낸다. `null` 은 보내지 않는다.
+
 ### builtInTools
 
 `builtInTools[]`는 tool schema surface 를 따른다. tool type 별 required field 를 이 문서에 복사하지 말고, MCP schema endpoint 에서 현재 built-in tool schema 를 조회한다.
