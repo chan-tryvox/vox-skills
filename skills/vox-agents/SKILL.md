@@ -65,14 +65,15 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 When the user selects GPT-Live, use the following contract and read
 `references/gpt-live-agent-data.json` before assembling a payload:
 
+- Current vox.ai GPT-Live supports `type: "single_prompt"` (single-node) agents only. Do not send `data.runtime.type: "gpt_live"` with `type: "flow"`; the combination is rejected. Existing Flow agents remain on the `pipeline` runtime and are not implicitly converted or migrated.
 - On create, treat an absent `data.runtime` and `{ "type": "pipeline" }` as the existing pipeline behavior. On PATCH/update, an omitted `runtime` preserves the current runtime, including `gpt_live`.
 - Represent GPT-Live as `{ "type": "gpt_live", "model": "gpt-live-1", "voice": ... }` under `data.runtime`.
 - Use `{ "type": "builtin", "name": "marin" }` as a native built-in voice example; it is not a claim that marin is the only supported name or the universal default. Use `{ "type": "custom", "id": "voice_..." }` only as an authorized OpenAI-native schema/catalog reference that passes the current organization-visible ownership checks; an arbitrary ID grants no access. The current execution path supports built-in voices only; custom references remain non-executable until an organization-scoped runtime mapping exists. Do not promise provisioning, migration, exact voice identity, or production readiness.
-- Keep `data.llm` as the selectable text LLM for shared chat and live business work. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new GPT-Live create, require `data.llm.model`; select it from `list_llm_models`.
+- Keep `data.llm` as the selectable text LLM for shared chat and live business work in `single_prompt`. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new GPT-Live create, require `data.llm.model`; select it from `list_llm_models`.
 - Put GPT-Live voice configuration in `data.runtime.voice`, never in the pipeline `data.voice` or a TTS-only field. A GPT-Live request must not include legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences that the current schema marks as legacy/incompatible; do not delete or copy the whole `data.speech` object by guesswork. Inherited pipeline defaults are removed after effective merge.
 - A pipeline-to-live update retains the existing `data.llm` unless the user explicitly changes it. A live-to-pipeline update must explicitly provide pipeline `stt` and `voice`; never infer them from `runtime.voice`.
 - Reads may return `data.stt` or `data.voice` as `null` or omit them for GPT-Live. Check `data.runtime` first and do not treat absent legacy fields as a migration failure.
-- Preserve flow node LLM overrides (`flow.nodes[].data.llm`) when changing agent-level runtime settings. Agent-level `data.llm` and node-level overrides are separate contracts.
+- When editing an existing Flow, preserve its node-level LLM overrides (`flow.nodes[].data.llm`), but treat them as legacy Flow settings, not a GPT-Live feature. Do not add a GPT-Live runtime to a Flow or rewrite node LLMs to a GPT-Live model.
 
 Keep this contract separate from API-generated OpenAPI artifacts. Use the API-owned schema
 generation pipeline for schema changes; do not invent or hand-edit generated schema in this

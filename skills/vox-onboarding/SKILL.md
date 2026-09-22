@@ -49,9 +49,12 @@ vox.ai MCP 도구를 사용해 음성 AI 에이전트를 만들고 실제 전화
    - llm/voice는 넣지 않는다 — `data.llm`/`data.voice`를 생략하면 서버가 기본값을 채운다. 사용자가 특정 음성·언어를 명시할 때만, 허용값을 `list_voice_models(language="ko-KR")`·`list_llm_models`로 조회해 지정한다.
 
 If the user explicitly asks for GPT-Live during onboarding, do not use the
-pipeline-only default above. Hand the payload design to `vox-agents` and require
-`data.llm.model` plus an explicit `data.runtime` object. Put the GPT-Live voice
-under `data.runtime.voice` (the `builtin` `marin` shape is an example). The
+pipeline-only default above. Create only a `type: "single_prompt"` agent;
+current vox.ai GPT-Live does not support `type: "flow"` and rejects a
+`gpt_live` runtime on an existing Flow. Do not implicitly convert or migrate a
+Flow; existing Flow agents remain on `pipeline`. Hand the payload design to
+`vox-agents` and require `data.llm.model` plus an explicit `data.runtime` object.
+Put the GPT-Live voice under `data.runtime.voice` (the `builtin` `marin` shape is an example). The
 current execution path supports built-in voices only; a custom voice is a
 schema/catalog reference that still requires an organization-scoped runtime
 mapping even when the current organization-visible catalog authorizes it. Omit

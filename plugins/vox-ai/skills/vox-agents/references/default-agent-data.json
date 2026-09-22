@@ -2,7 +2,7 @@
   "_note": "ILLUSTRATIVE SHAPE ONLY — 복사해서 보낼 '기본값'이 아니다. agent.data 의 root 구조를 보여주는 예시일 뿐이고, 실제 기본값의 SSOT 는 api-server 다. create_agent 는 클라이언트가 생략한 필드를 서버에서 기본값으로 채운다.",
   "_defaults": "기본값을 그대로 쓸 거면 해당 sub-schema(llm, voice 등)를 보내지 말고 OMIT 한다 — 서버가 채운다. 의도적으로 override 할 때만 보낸다.",
   "_allowed_values": "llm.model 허용 목록은 list_llm_models, voice.id/provider/model 허용 목록은 list_voice_models 로 조회한다. 정확한 shape 는 get_schema(namespace=\"agent-schema\", schema_type=\"agent-data-create\" | \"agent-data-update\", detail=\"minimal\").",
-  "_runtime_contract": "이 파일의 stt/voice/speech는 pipeline 예시다. GPT-Live는 별도 gpt-live-agent-data.json을 읽고 runtime.voice를 사용하며, legacy pipeline 필드를 함께 복사하지 않는다. PATCH에서 runtime을 생략하면 현재 runtime을 유지한다.",
+  "_runtime_contract": "이 파일의 stt/voice/speech는 pipeline 예시다. GPT-Live는 별도 gpt-live-agent-data.json을 읽고 single_prompt에서만 runtime.voice를 사용한다. type=flow와 gpt_live runtime 조합은 거부되며 기존 Flow는 pipeline을 유지한다. legacy pipeline 필드를 함께 복사하지 않는다. PATCH에서 runtime을 생략하면 현재 runtime을 유지한다.",
 
   "prompt": {
     "prompt": "",
