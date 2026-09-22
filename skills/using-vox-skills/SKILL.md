@@ -75,7 +75,7 @@ docs MCP는 router가 직접 처리하는 검색 케이스다 — 단순 검색 
 | "flow 설계해줘", "스크립트를 노드로 변환" | `vox-flow` | flow 전용 설계 작업 |
 | "node prompt 작성", "노드별 프롬프트", "condition_node 수정" | `vox-flow` | flow node 의 `data.prompt` / transition / fallback 보존은 flow 영역 |
 | "flow vs single prompt 뭐가 나아?" | `vox-agents` | 유형 판단은 agents가 소유, flow 결정 시 handoff |
-| "GPT-Live 에이전트 만들기", "gpt_live runtime 바꾸기", "실시간 음성 런타임" | `vox-agents` | agent.data runtime 계약과 single-prompt authoring은 agents가 소유하고, flow 노드 override는 flow reference를 보존한다 |
+| "GPT-Live 에이전트 만들기", "gpt_live runtime 바꾸기", "실시간 음성 런타임" | `vox-agents` | 현재 vox.ai GPT-Live는 `single_prompt` 전용이다. Flow는 pipeline 전용이며 `flow.nodes[].data.llm`은 기존 Flow 설정이지 GPT-Live 기능이 아니다 |
 | 요금/빌링/플랜/크레딧 질문 | docs MCP | 실시간 pricing 페이지 검색 |
 | SDK 사용법, API reference | docs MCP | 문서 검색으로 충분 |
 | "캠페인 만들어줘", "대량발신 설정" | `vox-web-app` | 대량발신/캠페인 관리는 웹 앱 영역 |

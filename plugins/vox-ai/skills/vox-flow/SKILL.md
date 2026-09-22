@@ -142,16 +142,20 @@ standard 보강으로 확인할 수 있는 대표 정보:
 
 ## Agent-level runtime versus node overrides
 
-Keep agent-level `data.runtime` separate from flow node configuration. When an
-agent switches between the pipeline and GPT-Live runtimes, preserve every
-`flow.nodes[].data.llm` override; do not rewrite node LLMs to the agent-level
-`data.llm` or map them to a GPT-Live model. GPT-Live voice belongs to
-`agent.data.runtime.voice`, not to node TTS or pipeline `data.voice` fields.
+Current vox.ai GPT-Live supports `single_prompt` agents only. Flow agents use
+the `pipeline` runtime; sending `type: "flow"` with
+`data.runtime.type: "gpt_live"` is rejected. Do not implicitly convert or
+migrate an existing Flow to `single_prompt`.
+
+When editing an existing Flow, preserve every `flow.nodes[].data.llm` override.
+Those are legacy Flow node settings, not a GPT-Live feature. Do not rewrite
+node LLMs to the agent-level `data.llm` or a GPT-Live model, and do not put
+GPT-Live voice under a Flow node or pipeline `data.voice` field.
 
 If the flow request also carries agent data, read the current agent schema first.
-For a new GPT-Live agent, `data.llm.model` is required. Keep legacy pipeline
-`stt`, `voice`, `parallelSTT`, and schema-marked legacy speech preferences out of
-GPT-Live input, while preserving valid node-level LLM overrides.
+Keep existing Flow runtime and node-level LLM settings within the Flow
+contract. GPT-Live payload authoring belongs to `vox-agents` and must use
+`type: "single_prompt"`.
 
 1. **공통 규칙 먼저** — flow에서도 실패 원인의 대부분은 음성 UX 위반(장문 발화, 부정확한 사실)이므로, `vox-agents`의 voice-ai-playbook 규칙(사실성 우선, 트레이드오프, 런타임 vs 개발 산출물 구분)이 flow에도 동일하게 적용된다.
 2. node type, field, enum, required 여부를 추측하지 않는다 — `flow` 작성 직전에 `get_schema(namespace='flow-schema', schema_type='flow-data', detail='minimal')` 를 한 번 호출하고 그 결과를 기준으로 JSON 을 만든다. 이 한 응답에 graph shape, edge condition, 모든 node type 의 `data` shape 가 함께 들어온다. per-node `get_schema(node-{type})` 는 narrow case 의 보조 호출이지 default 가 아니다. 자세한 패턴은 [Schema Fetching](#schema-fetching).
