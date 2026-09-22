@@ -56,10 +56,10 @@ Flow; existing Flow agents remain on `pipeline`. Hand the payload design to
 `vox-agents` and require `data.llm.model` plus an explicit `data.runtime` object.
 Put the GPT-Live voice under `data.runtime.voice` (the `builtin` `marin` shape is an example). The
 `custom` form is a reference for a new GPT-Live custom voice only; existing
-pipeline voice settings remain unchanged and are not migrated. Organization
-authorization and provisioning must complete before use, followed by quality
-validation; do not present the reference as execution-ready or as a way to
-create a voice. Omit
+pipeline voice settings remain unchanged and are not migrated. The same
+OpenAI project-scoped authorization and provisioning used for GPT-Live must
+complete before use, followed by quality validation; do not present the
+reference as execution-ready or as a way to create a voice. Omit
 legacy pipeline `stt`, `voice`, `parallelSTT`, and
 schema-marked legacy speech preferences. Do not infer GPT-Live from a missing
 field or silently map `data.llm` to another model.
