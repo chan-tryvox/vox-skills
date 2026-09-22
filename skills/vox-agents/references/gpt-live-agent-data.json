@@ -54,7 +54,7 @@
     "The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
     "GPT-Live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked legacy/incompatible by the current schema; do not remove data.speech wholesale.",
     "GPT-Live reads may omit stt/voice or return them as null.",
-    "A custom voice_ reference is illustrative schema/catalog shape only, must pass current organization-visible ownership checks, and is not executable until an organization-scoped runtime mapping exists; an arbitrary ID grants no access.",
+    "A custom voice_ reference is for a new GPT-Live custom voice only and requires organization authorization; existing pipeline voice settings remain unchanged and are not migrated. Provisioning and quality validation are separate prerequisites, so an arbitrary ID is not executable and grants no access.",
     "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a GPT-Live feature and must not be rewritten to a GPT-Live model."
   ]
 }
