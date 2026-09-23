@@ -57,7 +57,8 @@ test("Manual data reference stays authoring-facing", () => {
   assert.match(source, /@tool:<빌트인 name>/);
   assert.match(source, /@tool:<커스텀 도구 UUID>/);
   assert.match(source, /@manual:<UUID>/);
-  assert.match(source, /특정 Manual 이후에만 사용하는 후속 Manual은 `linked_manual_ids`에 연결/);
+  assert.match(source, /특정 Manual 이후에만 사용하는 후속 Manual은 `trigger`를 비우고 부모 content에서 `@manual:<UUID>`로 참조/);
+  assert.doesNotMatch(source, /linked_manual_ids/);
   assert.match(source, /M1.*M2.*임시 식별자는 직접 작성하지 않는다/);
   assert.deepEqual(
     [...source.matchAll(/^## (\d+\..+)$/gm)].map((match) => match[1]),
@@ -72,7 +73,8 @@ test("Manual authoring guide avoids internal and unrelated implementation detail
   assert.equal(bundled, source, "manual-authoring.md must match the plugin bundle");
   assert.match(source, /trigger는 Manual을 언제 시작할지 판단하는 기준 문장/);
   assert.match(source, /절차 전용 도구.*해당 매뉴얼에 연결/);
-  assert.match(source, /후속 Manual을 `linked_manual_ids`에 연결/);
+  assert.match(source, /후속 Manual을 같은 Agent의 `manuals` 맵에 두고 `trigger`를 비운 뒤/);
+  assert.doesNotMatch(source, /linked_manual_ids/);
   assert.match(source, /Manual은 필요한 업무 상황에서만 시작하는 독립 절차/);
   assert.match(source, /M1 같은 임시 식별자는 본문·content에 하드코딩하지 않는다/);
 });
@@ -112,4 +114,16 @@ test("Manual review documents the recursive tree gate", () => {
   assert.match(review, /@manual:/);
   assert.match(review, /@tool:/);
   assert.match(review, /SIDE-effect|Side-effect/i);
+});
+
+test("agent data teaches the agent-owned manuals map, not retired manualIds", () => {
+  const dataReference = read("skills/vox-agents/references/agent-data-reference.md");
+  const defaults = JSON.parse(read("skills/vox-agents/references/default-agent-data.json"));
+
+  assert.ok(!("manualIds" in defaults), "default-agent-data.json must not carry retired manualIds");
+  assert.deepEqual(defaults.manuals, {});
+  assert.match(dataReference, /^### manuals$/m);
+  assert.match(dataReference, /manualIds is retired/);
+  assert.match(dataReference, /맵 전체가 교체된다/);
+  assert.doesNotMatch(read("skills/vox-agents/SKILL.md"), /vox agent attach manual/);
 });
