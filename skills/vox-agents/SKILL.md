@@ -1,6 +1,6 @@
 ---
 name: vox-agents
-description: "Use whenever the user is building or diagnosing a vox.ai prompt-based (`single_prompt`) voice agent — including its system prompt, optional Manuals (Trigger/content/linked chains), agent.data, pipeline or GPT-Live runtime behavior, and runtime transitions. Manuals are a feature of prompt-based agents, not a separate agent type. For `flow` agent design, use vox-flow instead. Trigger on '프롬프트 작성해줘', '매뉴얼 만들어줘', '프롬프트 고쳐줘', 'GPT-Live', 'gpt_live', '실시간 음성 런타임', '에이전트가 이상하게 답해', '음성 에이전트', or any vox prompt-agent authoring question."
+description: "Use whenever the user is building or diagnosing a vox.ai prompt-based (`single_prompt`) voice agent — including its system prompt, optional Manuals (Trigger/content/linked chains), agent.data, pipeline or native live runtime behavior, and runtime transitions. Manuals are a feature of prompt-based agents, not a separate agent type. For `flow` agent design, use vox-flow instead. Trigger on '프롬프트 작성해줘', '매뉴얼 만들어줘', '프롬프트 고쳐줘', 'GPT-Live', 'Grok Voice', 'Gemini Live', 'gpt_live', 'grok_voice', 'gemini_live', '실시간 음성 런타임', '에이전트가 이상하게 답해', '음성 에이전트', or any vox prompt-agent authoring question."
 license: MIT
 compatibility: "Requires the vox MCP server (https://mcp.tryvox.co/mcp, OAuth login on first tool call), registered by the vox-ai plugin. Works in Claude Code, Codex, and any agentskills.io-compatible client; the vox CLI bundles the same skill offline."
 ---
@@ -37,7 +37,7 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 
 - **voice-ai-playbook.md** — 음성 UX 핵심 규칙, 트레이드오프 우선순위. **새 에이전트 설계 시 가장 먼저 읽기.** See [references/voice-ai-playbook.md](references/voice-ai-playbook.md)
 - **default-agent-data.json** + **agent-data-reference.md** — agent.data root 구조 예시(JSON, 복사용 기본값 아님) + MCP 동작 규칙(md). **MCP로 에이전트를 생성·수정할 때 둘 다 읽기.** See [references/default-agent-data.json](references/default-agent-data.json), [references/agent-data-reference.md](references/agent-data-reference.md)
-- **gpt-live-agent-data.json** — GPT-Live create/update payload examples and transition matrix. **Read when the user selects GPT-Live or changes `data.runtime`.** See [references/gpt-live-agent-data.json](references/gpt-live-agent-data.json)
+- **gpt-live-agent-data.json** — native live create/update payload examples and transition matrix. **Read when the user selects GPT-Live, Grok Voice, Gemini Live, or changes `data.runtime`.** See [references/gpt-live-agent-data.json](references/gpt-live-agent-data.json)
 - **ivr-navigation-best-practice.md** — IVR 메뉴 탐색, DTMF 전략, send_dtmf 프롬프팅. **에이전트가 ARS/IVR을 통과해야 하는 시나리오에서 읽기.** See [references/ivr-navigation-best-practice.md](references/ivr-navigation-best-practice.md)
 - **voice-ai-prompt-template.md** — 한국어 프롬프트 템플릿. **신규 프롬프트 작성 시 복사해 사용.** See [references/voice-ai-prompt-template.md](references/voice-ai-prompt-template.md)
 - **voice-ai-prompt-diagnosis.md** — 실패 사례 원인 진단. **에이전트가 이상하게 동작할 때 읽기.** See [references/voice-ai-prompt-diagnosis.md](references/voice-ai-prompt-diagnosis.md)
@@ -58,22 +58,23 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 5. **최소 변경 리팩터링** — 기존 프롬프트의 필수 섹션/도구 계약/변수/에러처리를 삭제하면 런타임 장애가 발생한다.
 6. **진단 → 리팩터링 핸드오프**: diagnosis에 `failure_modes`와 `change_requests`가 반드시 포함, revision은 `change_requests`를 근거로만 변경한다 — 근거 없는 재설계는 기존 동작을 깨뜨린다.
 7. **MCP 실행 주의** — 유저가 "적용/업데이트"를 명시했을 때만 실행. builtInTools/toolIds가 전체 교체 방식이라 실수로 실행하면 기존 설정이 날아간다. `agent-data-reference.md` 참조.
-8. **기본값은 서버가 채운다** — 기본값의 SSOT 는 api-server 이고, get_schema 는 shape 만 주고 기본 *값* 은 주지 않는다. 의도적으로 override 하지 않는 sub-schema(특히 `llm`, `voice`)는 보내지 말고 OMIT 해 서버 기본값을 적용한다. override 할 때만 허용 값을 `list_llm_models` / `list_voice_models` 로 조회하고 shape 는 `get_schema(namespace="agent-schema", schema_type="agent-data-create" | "agent-data-update", detail="minimal")` 로 확인한다. 한국어 STT 는 `stt.languages:["ko"]` 를 사용하고 `ko-KR` 은 `voice.language` 에만 쓴다. `speech.responsiveness` 는 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하며, "자연스러움" 명목으로 `0.8` / `0.9` 로 낮추지 않는다.
+8. **기본값은 서버가 채운다** — 기본값의 SSOT 는 api-server 이고, get_schema 는 shape 만 주고 기본 *값* 은 주지 않는다. 의도적으로 override 하지 않는 sub-schema(특히 `llm`, `voice`)는 보내지 말고 OMIT 해 서버 기본값을 적용한다. `llm.model`은 `list_llm_models`, pipeline `voice.id/provider/model`은 `list_voice_models`, native live `runtime.voice` 값은 현재 `agent-schema`에서 확인한다. shape 는 `get_schema(namespace="agent-schema", schema_type="agent-data-create" | "agent-data-update", detail="minimal")` 로 확인한다. 한국어 STT 는 `stt.languages:["ko"]` 를 사용하고 `ko-KR` 은 `voice.language` 에만 쓴다. `speech.responsiveness` 는 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하며, "자연스러움" 명목으로 `0.8` / `0.9` 로 낮추지 않는다.
 
-## GPT-Live runtime contract
+## Native live runtime contract
 
-When the user selects GPT-Live, use the following contract and read
-`references/gpt-live-agent-data.json` before assembling a payload:
+When the user selects GPT-Live, Grok Voice, or Gemini Live, use this contract
+and read `references/gpt-live-agent-data.json` before assembling a payload:
 
-- Current vox.ai GPT-Live supports `type: "single_prompt"` (single-node) agents only. Do not send `data.runtime.type: "gpt_live"` with `type: "flow"`; the combination is rejected. Existing Flow agents remain on the `pipeline` runtime and are not implicitly converted or migrated.
-- On create, treat an absent `data.runtime` and `{ "type": "pipeline" }` as the existing pipeline behavior. On PATCH/update, an omitted `runtime` preserves the current runtime, including `gpt_live`.
-- Represent GPT-Live as `{ "type": "gpt_live", "model": "gpt-live-1", "voice": ... }` under `data.runtime`.
-- Use `{ "type": "builtin", "name": "marin" }` as a native built-in voice example; it is not a claim that marin is the only supported name or the universal default. Use `{ "type": "custom", "id": "voice_..." }` only as an authorized OpenAI-native reference for a new GPT-Live custom voice; an arbitrary ID grants no access. Existing pipeline voice settings remain unchanged and are not migrated. Treat custom references as non-executable until the same OpenAI project-scoped authorization and provisioning used for GPT-Live are complete and the voice passes quality validation; do not promise provisioning, migration, exact voice identity, or production readiness.
-- Keep `data.llm` as the selectable text LLM for shared chat and live business work in `single_prompt`. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new GPT-Live create, require `data.llm.model`; select it from `list_llm_models`.
-- Put GPT-Live voice configuration in `data.runtime.voice`, never in the pipeline `data.voice` or a TTS-only field. A GPT-Live request must not include legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences that the current schema marks as legacy/incompatible; do not delete or copy the whole `data.speech` object by guesswork. Inherited pipeline defaults are removed after effective merge.
-- A pipeline-to-live update retains the existing `data.llm` unless the user explicitly changes it. A live-to-pipeline update must explicitly provide pipeline `stt` and `voice`; never infer them from `runtime.voice`.
-- Reads may return `data.stt` or `data.voice` as `null` or omit them for GPT-Live. Check `data.runtime` first and do not treat absent legacy fields as a migration failure.
-- When editing an existing Flow, preserve its node-level LLM overrides (`flow.nodes[].data.llm`), but treat them as legacy Flow settings, not a GPT-Live feature. Do not add a GPT-Live runtime to a Flow or rewrite node LLMs to a GPT-Live model.
+- The current runtime types are `gpt_live`, `grok_voice`, and `gemini_live`. All support `single_prompt` agents only. Keep Flow agents on `pipeline`; do not convert or migrate them.
+- On create, absent `data.runtime` or `{ "type": "pipeline" }` keeps the existing pipeline behavior. On PATCH/update, an omitted `runtime` preserves the current mode.
+- Every native live write requires an explicit provider model and builtin voice. Grok Voice uses `grok-voice-think-fast-2.0`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025`. Read the current agent schema for exact voice allowlists and casing. Gemini 3.1 and 3.8 are not supported by this contract.
+- GPT-Live uses model `gpt-live-1`; it accepts builtin voices and an organization-approved custom reference. Grok Voice and Gemini Live accept builtin voices only and reject `custom`.
+- Keep `data.llm` as the selectable text LLM for shared chat and live business work in `single_prompt`. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new native live create, require `data.llm.model`; select it from `list_llm_models`.
+- Put native live voice configuration in `data.runtime.voice`, never in pipeline `data.voice` or a TTS-only field. Do not include legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked incompatible by the current schema; do not delete or copy the whole `data.speech` object by guesswork. Inherited pipeline defaults are removed after effective merge.
+- A pipeline-to-live update retains the existing `data.llm` unless explicitly changed. A live-to-pipeline update must explicitly provide pipeline `stt` and `voice`; never infer them from `runtime.voice`.
+- Reads may return `data.stt` or `data.voice` as `null` or omit them for any native live runtime. Check `data.runtime` first and do not treat absent legacy fields as a migration failure.
+- GPT-Live custom references do not provision voices or grant authorization; validate provider access and voice quality separately. Existing pipeline voice settings remain unchanged and are not migrated.
+- When editing an existing Flow, preserve `flow.nodes[].data.llm`; treat it as a legacy Flow setting, not a native live feature. Do not add a native live runtime to Flow or rewrite node LLMs to a native live model.
 
 Keep this contract separate from API-generated OpenAPI artifacts. Use the API-owned schema
 generation pipeline for schema changes; do not invent or hand-edit generated schema in this

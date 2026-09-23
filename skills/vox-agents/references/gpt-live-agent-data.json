@@ -1,5 +1,5 @@
 {
-  "_note": "Illustrative GPT-Live shapes only. Read the current agent schema and model catalog before sending a request. Replace every angle-bracket placeholder with a value returned by the API or MCP catalog.",
+  "_note": "Illustrative native live shapes. Read the current agent schema and text LLM catalog before sending a request. Provider model IDs below are the supported contract; voice examples are not implicit defaults. Use the schema for exact builtin voice allowlists and casing.",
   "create_single_prompt": {
     "name": "업무 상담 에이전트",
     "type": "single_prompt",
@@ -18,6 +18,22 @@
           "name": "marin"
         }
       }
+    }
+  },
+  "grok_voice_runtime": {
+    "type": "grok_voice",
+    "model": "grok-voice-think-fast-2.0",
+    "voice": {
+      "type": "builtin",
+      "name": "eve"
+    }
+  },
+  "gemini_live_runtime": {
+    "type": "gemini_live",
+    "model": "gemini-2.5-flash-native-audio-preview-12-2025",
+    "voice": {
+      "type": "builtin",
+      "name": "Puck"
     }
   },
   "custom_voice_runtime_reference": {
@@ -47,14 +63,16 @@
     }
   },
   "contract_notes": [
-    "Current vox.ai GPT-Live supports type=single_prompt (single-node) agents only; type=flow with runtime.type=gpt_live is rejected, and existing Flow agents remain on pipeline without implicit conversion or migration.",
-    "On create, a missing runtime and runtime.type=pipeline preserve existing pipeline behavior; on update, an omitted runtime preserves the current runtime.",
-    "A new GPT-Live create requires data.llm.model.",
-    "The pipeline-to-live update keeps the existing data.llm unless explicitly changed.",
-    "The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
-    "GPT-Live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked legacy/incompatible by the current schema; do not remove data.speech wholesale.",
-    "GPT-Live reads may omit stt/voice or return them as null.",
-    "A custom voice_ reference is for a new GPT-Live custom voice only and requires the same OpenAI project-scoped authorization and provisioning used for GPT-Live; existing pipeline voice settings remain unchanged and are not migrated. Quality validation is a separate prerequisite, so an arbitrary ID is not executable and grants no access.",
-    "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a GPT-Live feature and must not be rewritten to a GPT-Live model."
+    "GPT-Live, Grok Voice, and Gemini Live are supported only for type=single_prompt; Flow agents remain on pipeline without implicit conversion or migration.",
+    "On create, a missing runtime and runtime.type=pipeline preserve existing pipeline behavior; on update, an omitted runtime preserves the current mode.",
+    "Every new native live create requires data.llm.model for shared chat and delegated text reasoning; do not invent chatLlm or fallback models.",
+    "Grok Voice requires grok-voice-think-fast-2.0 and Gemini Live requires gemini-2.5-flash-native-audio-preview-12-2025. Gemini 3.1 and 3.8 are outside this contract.",
+    "All native live writes require explicit provider builtin voice values. Read the agent schema for exact allowlists and casing; these examples do not set defaults.",
+    "Grok Voice and Gemini Live reject custom voices. The GPT-Live custom reference applies only to GPT-Live, does not provision a voice or grant authorization, and requires separate provider access and quality validation.",
+    "Native live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked incompatible by the current schema; do not remove data.speech wholesale.",
+    "The pipeline-to-live update keeps existing data.llm unless explicitly changed. The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
+    "Native live reads may omit stt/voice or return them as null.",
+    "Existing pipeline voice settings remain unchanged and are not migrated.",
+    "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a native live feature and must not be rewritten to a native live model."
   ]
 }
