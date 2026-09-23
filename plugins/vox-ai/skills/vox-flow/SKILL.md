@@ -142,19 +142,20 @@ standard 보강으로 확인할 수 있는 대표 정보:
 
 ## Agent-level runtime versus node overrides
 
-Current vox.ai GPT-Live supports `single_prompt` agents only. Flow agents use
-the `pipeline` runtime; sending `type: "flow"` with
-`data.runtime.type: "gpt_live"` is rejected. Do not implicitly convert or
-migrate an existing Flow to `single_prompt`.
+Current vox.ai GPT-Live, Grok Voice, and Gemini Live runtimes support
+`single_prompt` agents only. Flow agents use the `pipeline` runtime; sending
+`type: "flow"` with `data.runtime.type` set to `gpt_live`, `grok_voice`, or
+`gemini_live` is rejected. Do not implicitly convert or migrate an existing
+Flow to `single_prompt`.
 
 When editing an existing Flow, preserve every `flow.nodes[].data.llm` override.
-Those are legacy Flow node settings, not a GPT-Live feature. Do not rewrite
-node LLMs to the agent-level `data.llm` or a GPT-Live model, and do not put
-GPT-Live voice under a Flow node or pipeline `data.voice` field.
+Those are legacy Flow node settings, not a native live feature. Do not rewrite
+node LLMs to the agent-level `data.llm` or a native live model, and do not put
+native live voice under a Flow node or pipeline `data.voice` field.
 
 If the flow request also carries agent data, read the current agent schema first.
 Keep existing Flow runtime and node-level LLM settings within the Flow
-contract. GPT-Live payload authoring belongs to `vox-agents` and must use
+contract. Native live payload authoring belongs to `vox-agents` and must use
 `type: "single_prompt"`.
 
 1. **공통 규칙 먼저** — flow에서도 실패 원인의 대부분은 음성 UX 위반(장문 발화, 부정확한 사실)이므로, `vox-agents`의 voice-ai-playbook 규칙(사실성 우선, 트레이드오프, 런타임 vs 개발 산출물 구분)이 flow에도 동일하게 적용된다.

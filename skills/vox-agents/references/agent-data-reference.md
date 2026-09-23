@@ -9,7 +9,7 @@ get_schema(namespace="agent-schema", schema_type="agent-data-create")
 get_schema(namespace="agent-schema", schema_type="agent-data-update")
 ```
 
-[default-agent-data.json](default-agent-data.json)은 `agent.data` root 구조 예시(illustrative shape)일 뿐이다. 복사해서 보낼 "기본값"도 schema source 도 아니다. [gpt-live-agent-data.json](gpt-live-agent-data.json)은 GPT-Live create/update shape와 전환 예시다. 기본값의 SSOT 는 api-server 이고, 생략한 sub-schema 는 서버가 기본값으로 채운다.
+[default-agent-data.json](default-agent-data.json)은 `agent.data` root 구조 예시(illustrative shape)일 뿐이다. 복사해서 보낼 "기본값"도 schema source 도 아니다. [gpt-live-agent-data.json](gpt-live-agent-data.json)은 native live create/update shape와 전환 예시다. 기본값의 SSOT 는 api-server 이고, 생략한 sub-schema 는 서버가 기본값으로 채운다.
 
 ## Root 필수 필드
 
@@ -43,23 +43,23 @@ schema endpoint 결과를 따른다. 기존 pipeline payload 에서는 `prompt`,
 - `speed`: 발화 속도 (0.5~2.0).
 - `temperature`: 음성 변이.
 
-### runtime (GPT-Live)
+### runtime (native live)
 
-When the user selects GPT-Live, use the contract below and the accompanying
-[gpt-live-agent-data.json](gpt-live-agent-data.json) examples. The current agent
-schema remains authoritative for field presence and validation.
+When the user selects GPT-Live, Grok Voice, or Gemini Live, use the contract
+below and the accompanying [gpt-live-agent-data.json](gpt-live-agent-data.json)
+examples. The current agent schema remains authoritative for field presence
+and validation.
 
-- Current vox.ai GPT-Live supports `single_prompt` (single-node) agents only. A `type: "flow"` agent with `data.runtime.type: "gpt_live"` is rejected; existing Flow agents remain on the `pipeline` runtime and are not implicitly converted or migrated.
-- On create, an absent `runtime` or `{ "type": "pipeline" }` keeps the existing pipeline behavior.
-- On update, an omitted `runtime` preserves the current runtime, including `gpt_live`; it does not switch an agent back to pipeline.
-- GPT-Live uses `runtime: { "type": "gpt_live", "model": "gpt-live-1", "voice": ... }`.
-- The built-in voice example is `runtime.voice: { "type": "builtin", "name": "marin" }`. This is an example, not a claim that marin is the only supported name or the universal default.
-- A native custom voice is documented only as the reference `runtime.voice: { "type": "custom", "id": "voice_..." }` for a new GPT-Live custom voice after the organization authorizes it. An arbitrary ID grants no access. Existing pipeline voice settings remain unchanged and are not migrated. Treat custom references as non-executable until the same OpenAI project-scoped authorization and provisioning used for GPT-Live are complete and quality validation has passed. Do not promise custom provisioning, migration, or exact voice identity.
-- `data.llm` remains the selectable text LLM for shared chat and live business work in `single_prompt`. A new GPT-Live create requires `data.llm.model` from `list_llm_models`; do not invent `chatLlm` or implicitly map `data.llm` to Luna.
-- Put GPT-Live voice configuration in `runtime.voice`, not pipeline `data.voice` or a TTS-only field. Do not send legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked legacy/incompatible by the current schema. Do not delete the whole `data.speech` object by guesswork.
-- A pipeline-to-live update retains the existing `data.llm` unless the user explicitly changes it. A live-to-pipeline update explicitly supplies pipeline `stt` and `voice`; never infer them from `runtime.voice`.
-- GPT-Live reads may omit `stt`/`voice` or return them as `null`. Check `runtime` first.
-- When editing an existing Flow, preserve node-level overrides at `flow.nodes[].data.llm`; they are legacy Flow settings, not a GPT-Live feature. Do not add `gpt_live` runtime to a Flow or rewrite node LLMs to a GPT-Live model.
+- The supported types are `gpt_live`, `grok_voice`, and `gemini_live`. All are `single_prompt`-only. Existing Flow agents stay on `pipeline`; do not convert or migrate them.
+- On create, absent `runtime` or `{ "type": "pipeline" }` keeps pipeline behavior. On update, omitted `runtime` preserves the current mode.
+- Each native live runtime requires an explicit model and builtin voice. Grok Voice uses `grok-voice-think-fast-2.0`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025`. Fetch the current schema for the exact provider voice allowlist and casing. Gemini 3.1 and 3.8 are outside this contract.
+- GPT-Live uses `gpt-live-1` and supports builtin voice names such as `marin`. It may also accept an organization-approved custom reference `{ "type": "custom", "id": "voice_..." }`. Grok Voice and Gemini Live require `{ "type": "builtin", "name": ... }` and reject `custom`.
+- `data.llm` remains the selectable text LLM for shared chat and live business work in `single_prompt`. Every new native live create requires `data.llm.model` from `list_llm_models`; do not invent `chatLlm` or implicitly map `data.llm` to another model.
+- Put native live voice configuration in `runtime.voice`, not pipeline `data.voice` or a TTS-only field. Do not send legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked incompatible by the current schema. Do not delete the whole `data.speech` object by guesswork.
+- A pipeline-to-live update retains existing `data.llm` unless explicitly changed. A live-to-pipeline update explicitly supplies pipeline `stt` and `voice`; never infer them from `runtime.voice`.
+- Native live reads may omit `stt`/`voice` or return them as `null`. Check `runtime` first.
+- GPT-Live custom references do not provision a voice or grant authorization; confirm provider access and quality separately. Existing pipeline voice settings remain unchanged and are not migrated.
+- When editing an existing Flow, preserve `flow.nodes[].data.llm`; it is a legacy Flow setting, not a native live feature. Do not add a native live runtime to Flow or rewrite node LLMs to a native live model.
 
 ### postCall
 
@@ -136,7 +136,7 @@ get_schema(namespace="tool-schema", schema_type="<built-in-tool-schema>")
 - `flow` agent 를 실사용 가능한 상태로 만들 때는 public `flow` 를 함께 보낸다. `flow_data` 는 legacy graph 이므로 새 작성에는 쓰지 않는다. 단순 shell agent 생성 여부는 API/MCP contract 를 확인한다.
 - flow graph 만 만들거나 검증하는 작업이면 `data` 를 생략한다. schema 에 보이는 기본값을 복사하려고 `stt.speed`, `llm`, `voice`, `speech` 를 채우지 않는다.
 - `data` 를 작성하기 전에 `get_schema(namespace="agent-schema", schema_type="agent-data-create")` 를 호출한다.
-- GPT-Live를 새로 만들 때는 `type: "single_prompt"`와 `data.runtime`, `data.llm.model`을 반드시 포함한다. `type: "flow"`와 `gpt_live` 런타임 조합은 거부되며, 기존 Flow는 `pipeline`을 유지한다. `runtime.voice`는 `builtin`을 실행 설정으로 사용한다. OpenAI 네이티브 `custom`은 새 GPT-Live 커스텀 음성에만 사용하는 참조이며, 기존 pipeline 음성은 그대로 유지하고 마이그레이션하지 않는다. GPT-Live와 같은 OpenAI 프로젝트 범위에서 권한·프로비저닝을 먼저 확정하고 품질 검증을 마치기 전에는 실행 가능한 설정으로 사용하지 않는다. pipeline용 `stt`/`voice`/`parallelSTT`/`sttPreference`/`voicePreference`와 호환되지 않는 legacy speech preference를 같은 입력에 복사하지 않는다.
+- Native live를 새로 만들 때는 `type: "single_prompt"`, `data.runtime`, `data.llm.model`을 반드시 포함한다. Flow는 `pipeline`을 유지한다. Grok Voice와 Gemini Live는 schema에 있는 `builtin` voice만 받는다. OpenAI `custom`은 새 GPT-Live 음성용 참조이며, 기존 pipeline 음성은 그대로 유지하고 마이그레이션하지 않는다. pipeline용 `stt`/`voice`/`parallelSTT`/`sttPreference`/`voicePreference`와 호환되지 않는 legacy speech preference를 같은 입력에 복사하지 않는다.
 
 ### update_agent
 
@@ -149,11 +149,11 @@ get_schema(namespace="tool-schema", schema_type="<built-in-tool-schema>")
 4. `update_agent(agent_id=..., data=...)` 호출
 5. `get_agent()`로 round-trip 확인
 
-single_prompt GPT-Live 전환:
+single_prompt native live 전환:
 
-- pipeline → GPT-Live: `runtime`을 명시하고 기존 `data.llm`을 유지한다. `runtime`을 생략한 PATCH는 전환이 아니다.
-- GPT-Live → pipeline: `runtime: {"type": "pipeline"}`과 pipeline용 `stt`, `voice`를 명시한다. `runtime.voice`에서 pipeline 음성을 추측하지 않는다.
-- GPT-Live 수정: `data.stt`/`data.voice`가 `null`이거나 응답에서 생략될 수 있으므로 `runtime`을 기준으로 round-trip을 확인한다.
+- pipeline → native live: provider `runtime`을 명시하고 기존 `data.llm`을 유지한다. `runtime`을 생략한 PATCH는 전환이 아니다.
+- native live → pipeline: `runtime: {"type": "pipeline"}`과 pipeline용 `stt`, `voice`를 명시한다. `runtime.voice`에서 pipeline 음성을 추측하지 않는다.
+- native live 수정: `data.stt`/`data.voice`가 `null`이거나 응답에서 생략될 수 있으므로 `runtime`을 기준으로 round-trip을 확인한다.
 
 **sub-schema replacement semantics가 핵심이다** — `builtInTools`에 `end_call` 하나만 넣으면 기존 도구가 전부 사라질 수 있다. 기존 도구 객체를 schema 기본값으로 다시 만들면 전환 대상, SMS 발신/본문 설정, DTMF interrupt, 종료 도구 실행 중 발화 같은 tool-level 설정도 사라진다. 반드시 `get_agent()`로 현재 값을 읽고, 수정 후 보존할 sibling 값을 함께 다시 보내라.
 
