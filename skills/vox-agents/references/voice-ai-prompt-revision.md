@@ -44,9 +44,12 @@ get_agent(agent_id = call.agent_id)
 current_prompt = agent.data.prompt
 update_agent(
   agent_id = call.agent_id,
+  expected_head_revision = agent.head_revision,
   data = {"prompt": {**current_prompt, "prompt": revised_system_prompt}}
 )
 ```
+
+Use the `head_revision` observed in the preceding `get_agent` response. If the write returns `REVISION_CONFLICT`, do not fetch and retry automatically; ask the user to review the newer state before composing another update.
 
 권장:
 - 업데이트는 **유저가 “적용해줘/업데이트해줘”라고 명시했을 때만** 실행한다.

@@ -86,18 +86,22 @@ update_tool(tool_id="tool-uuid", description="예약 상태 및 잔여석 조회
 delete_tool(tool_id="tool-uuid")
 ```
 
-## 에이전트 연결: update_agent(data={"toolIds": [...]})
+에이전트 연결/해제 요청 전 `get_agent`를 호출하고 응답의 `head_revision`을
+필수 `expected_head_revision`으로 전달합니다. `REVISION_CONFLICT`를 자동 재시도하지
+않습니다.
+
+## 에이전트 연결: update_agent(expected_head_revision=..., data={"toolIds": [...]})
 
 ```
-update_agent(agent_id="agent-uuid", data={"toolIds": ["tool-uuid"]})
+update_agent(agent_id="agent-uuid", expected_head_revision=<head_revision from get_agent>, data={"toolIds": ["tool-uuid"]})
 ```
 
 `list_tools()` 또는 `create_tool()` 응답의 `uid`를 `data.toolIds` 배열에 넣어 전달합니다. `toolIds`는 top-level 인자가 아니라 `data` 안의 필드입니다 — top-level로 보내면 호출이 거부됩니다.
 
-## 에이전트 해제: update_agent(data={"toolIds": [...]})
+## 에이전트 해제: update_agent(expected_head_revision=..., data={"toolIds": [...]})
 
 ```
-update_agent(agent_id="agent-uuid", data={"toolIds": []})
+update_agent(agent_id="agent-uuid", expected_head_revision=<head_revision from get_agent>, data={"toolIds": []})
 ```
 
 `toolIds`는 교체(replace) 방식입니다. 일부만 변경할 때는 `get_agent()`로 현재 `data.toolIds`를 조회한 뒤 원하는 항목을 추가/제거한 전체 배열을 다시 저장하세요.

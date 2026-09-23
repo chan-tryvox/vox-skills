@@ -80,7 +80,7 @@ Plugin을 설치한 경우에는 `/vox-ai:vox-onboarding`(Claude Code/Codex/Cowo
 | `get_call` | 통화 상세 |
 | `create_call` | 아웃바운드 콜 |
 | `validate_flow` | public `flow` 검증 (dry-run, 기본 all; critical/runtime level 지원) |
-| `update_agent_partial` | legacy `flow_data` graph 부분 수정 (구조 ops, dry-run 지원) |
+| `update_agent_partial` | retired 이름. 현재 클라이언트는 로컬에서 거부하며 API 요청을 보내지 않음 |
 | `validate_flow_data` | legacy `flow_data` 검증 (dry-run, fixed_flow_data 반환) |
 | `autofix_flow_data` | legacy `flow_data` 자동 보정 (preview / apply) |
 | `list_tools` | 커스텀 도구(HTTP/API) 목록 |
@@ -95,5 +95,7 @@ Plugin을 설치한 경우에는 `/vox-ai:vox-onboarding`(Claude Code/Codex/Cowo
 | `list_voice_models` | 허용 음성 모델 목록 |
 | `list_telephone_numbers` | 보유 번호 조회 (read-only) |
 | `update_telephone_number_agent` | 번호에 인바운드 에이전트 연결/해제 (`inbound_agent` / `clear_inbound_agent`) |
+
+`update_agent`를 쓸 때는 직전 `get_agent` 응답의 `head_revision`을 필수 `expected_head_revision`으로 전달하세요. Flow 전체를 교체하면 `flow_revision`도 `expected_flow_revision`으로 전달하고, `REVISION_CONFLICT`를 자동 재시도하지 마세요.
 
 번호 구매, 대량 발신 캠페인은 이 phase에서 공개 MCP 도구가 없다. 웹 앱(`https://www.tryvox.co/dashboard/{organizationId}/numbers`)에서 수행한다.

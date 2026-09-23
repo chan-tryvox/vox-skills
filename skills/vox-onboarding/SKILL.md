@@ -55,13 +55,23 @@ agents. Do not implicitly convert or migrate a Flow; existing Flow agents
 remain on `pipeline`. Hand the payload design to `vox-agents` and require
 `data.llm.model` plus an explicit `data.runtime` object. Put the selected
 provider's builtin voice under `data.runtime.voice` and read its exact model
-and voice values from the agent schema. Grok Voice and Gemini Live reject
+and voice values from the agent schema. Pin Grok Voice to
+`grok-voice-think-fast-2.0` and Gemini Live to
+`gemini-2.5-flash-native-audio-preview-12-2025`; use only the provider-specific
+builtin voice IDs and casing in the current schema. Gemini 3.1 and 3.8 are not
+supported by this contract. Grok Voice and Gemini Live reject
 custom voices; the GPT-Live custom reference is not a way to create a voice
 or grant provider authorization. Existing pipeline voice settings remain
 unchanged and are not migrated. Omit legacy pipeline `stt`, `voice`,
 `parallelSTT`, and schema-marked incompatible speech preferences. Do not infer
 a native live runtime from a missing field or silently map `data.llm` to
 another model.
+
+For Grok Voice and Gemini Live, the effective
+`data.speech.isAllowInterruption` value must be `true`. Create omission uses the
+default `true`; PATCH omission preserves the existing value, so explicitly set
+`true` when switching from a stored `false`. The API rejects `false` and does
+not silently force it to `true`.
 
 생성 성공 시에만 다음 단계로 진행.
 실패 시: 에러 내용을 보여주고 수정 후 재시도.

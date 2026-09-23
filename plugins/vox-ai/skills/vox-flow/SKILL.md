@@ -158,6 +158,11 @@ Keep existing Flow runtime and node-level LLM settings within the Flow
 contract. Native live payload authoring belongs to `vox-agents` and must use
 `type: "single_prompt"`.
 
+Before an `update_agent` write, read the current agent revisions and pass the
+observed `expected_head_revision`. Replacing the entire Flow graph also requires
+the matching `expected_flow_revision`. On `REVISION_CONFLICT`, stop and surface
+the conflict; do not automatically fetch the latest graph and retry.
+
 1. **공통 규칙 먼저** — flow에서도 실패 원인의 대부분은 음성 UX 위반(장문 발화, 부정확한 사실)이므로, `vox-agents`의 voice-ai-playbook 규칙(사실성 우선, 트레이드오프, 런타임 vs 개발 산출물 구분)이 flow에도 동일하게 적용된다.
 2. node type, field, enum, required 여부를 추측하지 않는다 — `flow` 작성 직전에 `get_schema(namespace='flow-schema', schema_type='flow-data', detail='minimal')` 를 한 번 호출하고 그 결과를 기준으로 JSON 을 만든다. 이 한 응답에 graph shape, edge condition, 모든 node type 의 `data` shape 가 함께 들어온다. per-node `get_schema(node-{type})` 는 narrow case 의 보조 호출이지 default 가 아니다. 자세한 패턴은 [Schema Fetching](#schema-fetching).
 3. deprecated node(`function`, legacy `knowledge`)는 신규 flow에 사용하지 않고, 기존 flow 수정 시에도 public `flow` write 전에 마이그레이션한다. `function`은 `tool` 또는 `api`로, legacy `knowledge`는 `conversation` node의 node-level knowledge 설정으로 옮긴다. 마이그레이션할 수 없으면 `update_agent(flow=...)` 로 round-trip 하지 말고 legacy `flow_data` 유지보수 경로를 사용하거나 사용자에게 막힌 이유를 보고한다.
@@ -167,7 +172,7 @@ contract. Native live payload authoring belongs to `vox-agents` and must use
 7. **conversation JSON 은 mode와 exit 조건을 빠뜨리지 않는다** — static 문구는 `prompt_type:"static"` + `static_sentence`, generated 대화는 `prompt_type:"dynamic"` + `prompt`/`first_message` 로 작성한다. 일반 out-edge 의 `condition` 은 빈 값/null/"None" 이 아니라 사용자가 그 노드를 벗어나도 되는 의미 있는 한국어 exit 조건이어야 한다. 조건 없는 edge 는 자동 진행이 아니라 dead route 가 된다.
 8. **검증/비교는 정답 데이터 출처가 있어야 한다** — 본인확인, 예약조회, 계약검증처럼 사용자의 답을 기존 데이터와 비교해야 하는 flow 는 먼저 정답값 출처를 정한다. API node 의 `response_variables` 또는 통화 시작 전 주입된 preset dynamic variables 가 없으면 "일치 확인"이라고 말하거나 condition 으로 검증하지 않는다. 그런 경우는 정보 수집 flow 로 낮추거나, 조회 API 를 추가한다.
 9. **동일 인물/동일 대상 shortcut 을 명시한다** — "계약자와 학습자가 본인", "예약자와 방문자가 동일"처럼 앞에서 받은 답이 뒤 질문의 답을 결정하면 다시 묻지 않는다. extraction 에서 동일성 변수(`is_same_person` 등)를 만들고 condition 으로 재사용 path 와 추가질문 path 를 나눈다.
-10. **산출물 경로는 두 가지** — (a) 대시보드 flow editor 에 사람이 직접 입력하는 노드 markdown, (b) v3 REST API 또는 동등한 vox.ai MCP `create_agent` / `update_agent` 의 `flow` 파라미터로 보내는 JSON. JSON surface 는 schema endpoint 가 authoritative 하며, `update_agent(flow=...)` 는 항상 **전체 교체** 방식 — 기존 노드 일부만 patch 하지 않고 nodes/edges 전체를 다시 보낸다. legacy `flow_data` graph 를 명시적으로 다루는 경우에만 `flow_data` / `update_agent_partial` 를 사용한다.
+10. **Write contract** — For REST or vox.ai MCP, use the public `flow` parameter for current graphs and replace the complete node/edge graph. Read the current agent first; every `update_agent` call requires the observed `expected_head_revision`, and a full Flow replacement also requires the observed `expected_flow_revision`. On `REVISION_CONFLICT`, stop without an automatic retry. Preserve a legacy graph only through full `flow_data` replacement where supported; `update_agent_partial` is retired.
 11. **Schema endpoint 우선** — `references/node-types.md` 는 node 선택과 실수 방지 playbook 이다. 실제 필드 목록을 복사하지 말고, 작업 중 받은 `get_schema(flow-data, minimal)` 결과를 기준으로 `flow` 를 작성한다. 전송 후 `get_agent` 로 round-trip 확인해 unknown field drop 을 잡는다.
 12. **flow 전송 전 dry-run 먼저** — `create_agent` / `update_agent` 의 `flow` 를 보내기 전 `validate_flow(flow=..., level="all")` 를 호출하고, `errors` 가 비었을 때만 진짜 호출한다. 응답별 처리와 legacy `flow_data` 도구는 [Response Handling](#response-handling) 한 곳에서만 정의한다.
 13. **nested config default 는 백엔드가 채운다** — `api_configuration` 의 인증/헤더/바디 옵션, `extraction_configuration`, `transfer_configuration`, `knowledge` 같은 nested 객체의 모든 필드를 LLM 이 외워 채울 필요 없다. `url`, `agent.agent_id`, `tool_id` 처럼 누락 시 진짜 차단 오류가 나는 식별자만 명시하고, 나머지는 사용자가 의도적으로 지정한 키만 보낸다. 외운 default 를 강제로 채워 넣으면 schema 진화에 뒤처지고 dry-run warnings 만 늘어난다.
@@ -195,6 +200,7 @@ contract. Native live payload authoring belongs to `vox-agents` and must use
 - legacy payload 를 유지보수해야 하면 `validate_flow_data(flow_data=...)` 로 dry-run 하고, `errors` 가 비었을 때만 legacy write 를 진행한다.
 - `warnings` 또는 `fixed_flow_data` 가 있으면 자동 보정 preview 이므로 사용자에게 한두 줄로 전달한다.
 - `autofix_flow_data(flow_data=..., apply_fixes=true)` 를 썼다면, 보정본을 곧장 보내지 말고 `validate_flow_data` 로 다시 dry-run 한다.
+- `update_agent_partial` is a retired legacy name. The current CLI/MCP client rejects it locally and sends no API request. Do not use it.
 
 ### `create_agent` / `update_agent` 422 / 400 응답
 
@@ -213,26 +219,16 @@ contract. Native live payload authoring belongs to `vox-agents` and must use
 
 단, 현재 `flow.nodes[]` 에 `function` 또는 legacy `knowledge` node 가 있으면 public `flow` write 는 거절된다. 먼저 지원되는 node type 으로 마이그레이션하거나, 해당 legacy graph 를 보존해야 하면 `flow_data` 유지보수 경로를 쓴다.
 
-`update_agent_partial` 는 legacy `flow_data` helper 다. 기존 legacy `flow_data` 를 작은 ordered ops 로 유지보수해야 하는 경우에만 사용한다.
-
-```text
-update_agent_partial(agent_id="<UUID>", operations=[...], validate_only?)
-```
-
-- `operations[]` 는 legacy `flow_data` graph 에 순서대로 적용되는 구조 변경 ops 다 (`addNode` / `removeNode` / `updateNode` / `addEdge` / `removeEdge` 등). 한 호출이 **atomic** — 중간 op 가 실패하면 전부 롤백된다.
-- `validate_only=true` 면 적용하지 않고 dry-run 만 한다.
-- 새 flow 작성에서 partial ops 로 우회하지 않는다. public `flow` 를 읽고 전체 graph 를 `update_agent(flow=...)` 로 보낸다.
-
-### update_agent_partial vs update_agent
+### Current write path vs retired partial helper
 
 | 상황 | 도구 |
 |------|------|
 | public `flow` 생성/수정 | `create_agent(flow=...)` / `update_agent(flow=...)` |
-| public `flow` 조회 결과에 `function` / legacy `knowledge` node 포함 | 지원되는 node type 으로 마이그레이션 후 `update_agent(flow=...)`; 보존만 필요하면 legacy `flow_data` 경로 |
-| legacy `flow_data` 노드 1~2개 추가/삭제, 한 노드의 prompt/transition 손보기, 엣지 한 줄 다시 잇기 | `update_agent_partial` (ordered ops) |
-| legacy `flow_data` 전체 교체 | `update_agent(flow_data=...)` (deprecated compatibility) |
+| public `flow` read contains `function` / legacy `knowledge` node | Migrate to a supported node type before `update_agent(flow=...)`; preserve only through legacy `flow_data` where necessary |
+| Maintain an existing `flow_data` graph | Check its schema and use full `update_agent(flow_data=..., expected_head_revision=...)` replacement |
+| `update_agent_partial` appears in a tool list | Retired helper; locally rejected, no API request |
 
-판단이 애매하면 public `flow` 를 우선한다. legacy helper 는 기존 `flow_data` graph 를 명시적으로 보존해야 할 때만 쓴다.
+Prefer public `flow`. Do not use the retired partial helper; use a full `flow_data` replacement only when preserving an existing legacy graph.
 
 ## Ownership Boundary
 
@@ -249,7 +245,7 @@ update_agent_partial(agent_id="<UUID>", operations=[...], validate_only?)
 ### MCP Tools (vox.ai)
 - `create_agent` — flow 에이전트 생성 (`type: "flow"`, `flow=...`)
 - `update_agent` — 에이전트 설정 수정 (`flow` 는 전체 교체)
-- `update_agent_partial(agent_id, operations[], validate_only?)` — legacy `flow_data` graph 작은 구조 변경용 ordered ops (atomic). 새 flow 작성에는 사용하지 않는다 ([Incremental Editing](#incremental-editing)).
+- `update_agent_partial` — retired legacy name; the current client rejects it locally and sends no request. Use `update_agent(flow=...)` for current graphs or full `flow_data` replacement only when preserving a legacy graph.
 - `get_agent` — 기존 에이전트 설정 확인 (`flow` 포함, `flow_data` 는 deprecated compatibility)
 - `list_agents` — 에이전트 목록
 - `get_schema(namespace='flow-schema', schema_type='flow-data', detail='minimal')` — **default 호출.** public `flow` graph + edge condition + 모든 node type 의 `data` shape 가 한 응답에 들어온다. `flow` 구성 전 1회 호출.

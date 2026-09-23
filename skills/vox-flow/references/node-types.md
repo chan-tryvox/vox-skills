@@ -28,7 +28,7 @@ get_schema(namespace="agent-schema", schema_type="agent-data-create", detail="mi
 get_schema(namespace="agent-schema", schema_type="agent-data-update", detail="minimal")
 ```
 
-schema 결과를 받은 뒤에만 `validate_flow(flow=..., level="all")` 와 `create_agent(type="flow", data=..., flow=...)` 또는 `update_agent(flow=...)` 를 호출한다. 전송 후 `get_agent` 로 다시 읽어, 보낸 field 가 사라지지 않았는지 확인한다.
+schema 결과를 받은 뒤에만 `validate_flow(flow=..., level="all")` 와 `create_agent(type="flow", data=..., flow=...)` 또는 `update_agent(flow=...)` 를 호출한다. `update_agent`에는 현재 읽은 `head_revision`을 `expected_head_revision`으로 전달하고 Flow 전체 교체에는 `flow_revision`도 `expected_flow_revision`으로 지정한다. 충돌을 자동 재시도하지 않는다. 전송 후 `get_agent` 로 다시 읽어, 보낸 field 가 사라지지 않았는지 확인한다.
 
 ## Per-node fallback
 

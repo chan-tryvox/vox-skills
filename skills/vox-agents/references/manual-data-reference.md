@@ -4,6 +4,12 @@
 
 표기 규칙: agent.data(MCP `create_agent`/`update_agent`)는 camelCase(`builtInTools`, `toolIds`, `manuals`)이고, Manual 값(`agent.data.manuals`의 각 값과 CLI `manual.json`)은 snake_case(`built_in_tools`, `tool_call_sound`)다. 표면이 다르기 때문이며, 한쪽 표기를 다른 쪽에 섞어 쓰지 않는다.
 
+Agent API의 `data.manuals`는 canonical UUID를 key로 하는 전체 맵이다. 포함해 PATCH하면 전체 교체하고, 생략하면 현재 맵을 유지한다. API content에서는 `@manual:<UUID>`로 linked Manual을 참조한다. API에서도 agent-owned CRUD 경로는 `/agents/{agent_id}/manuals`이며, 전역 `/manuals` route는 없다. 공개 MCP surface에는 standalone Manual CRUD tool이 없다.
+
+CLI 로컬 Manual 파일은 `agents/<agent>/manuals/<local-name>/manual.json`에 둔다. `.vox/project.json`의 `bindings[<agent>].manuals[<local-name>]`가 API UUID와 동기화 상태를 보관한다. CLI `agent pull`과 `vox manual pull --agent <agent>`는 원격 맵을 해당 Agent 범위의 파일과 binding으로 materialize한다. Historical `production`/`vN` pull은 읽기 전용 미리보기다. 로컬 content의 `@manual:<local-name>`·`@tool:<local-tool-name>` references는 CLI가 binding을 사용해 API ID로 변환한다.
+
+API `data.manuals`와 CLI 로컬 파일은 별도 authoring surface다. API manual 값은 허용된 `name`, `trigger`, `content`, `built_in_tools`, `config` fields를 따른다. CLI `agent.json`에는 `data.manuals`, `manualIds`, `manualRefs`를 넣지 않는다. `manualIds`, `tool_ids`, `linked_manual_ids`를 새 payload field로 만들지 않는다. `vox manual push`는 revision guard를 사용해 전체 `data.manuals` map을 쓴다. 원격 전용 항목을 제거하려면 `--delete-extra --yes`를 명시한다.
+
 ## 1. 엔티티 필드
 
 Manual은 Agent가 소유한다. `agent.data.manuals`는 Manual UUID를 키로 하는 맵이고, 값에는 id 필드가 없다. 다른 Agent와 Manual을 공유하지 않으며, 같은 절차가 두 Agent에 필요하면 각 Agent에 따로 둔다.
@@ -29,11 +35,10 @@ Manual은 Agent 버전과 함께 동결된다. 수정은 Agent의 current 초안
 ## 2. 연결 및 참조 규칙
 
 - Agent가 직접 시작할 수 있는 Manual은 `trigger`를 채운 진입 Manual로 둔다.
-- 특정 Manual 이후에만 사용하는 후속 Manual은 `trigger`를 비우고 부모 content에서 `@manual:<UUID>`로 참조한다. 대상은 같은 Agent의 `manuals` 맵에 있어야 하며, 없으면 `MANUAL_NOT_FOUND`로 배포가 막힌다.
+- 특정 Manual 이후에만 사용하는 후속 Manual은 `trigger`를 비우고 부모 content에서 `@manual:<local-name>`(CLI) 또는 `@manual:<UUID>`(API)로 참조한다. 대상은 같은 Agent의 map/bindings 안에 있어야 하며, 없으면 `MANUAL_NOT_FOUND`로 배포가 막힌다.
 - Manual 전용 빌트인 도구는 해당 Manual의 `built_in_tools`에 두고 content에서 `@tool:<빌트인 name>`으로 참조한다. `built_in_tools`에 없는 이름을 참조하면 `BUILT_IN_TOOL_NOT_DEFINED`다.
-- 조직 커스텀 도구는 content에서 `@tool:<커스텀 도구 UUID>`로 참조한다. 배포 시 같은 조직에 그 도구가 없으면 `MANUAL_TOOL_UNAVAILABLE`이다.
-- CLI 로컬 파일에서는 `@manual:<local-name>`·`@tool:<local-tool-name>`으로 쓰고, `vox manual push`가 UUID로 바꿔 보낸다.
-- `M1`, `M2` 같은 임시 식별자는 직접 작성하지 않는다. Agent 본문에서는 Manual 이름을 사용하고, Manual 간 연결에는 UUID를 사용한다.
+- CLI Manual-owned builtin tools are listed in `built_in_tools` and referenced by `@tool:<name>`. CLI custom Tool references use the same Agent's Tool bindings/local names; API content uses the canonical Tool UUID.
+- `M1`, `M2` 같은 임시 식별자는 직접 작성하지 않는다. Agent 본문에서는 Manual 이름을 사용한다. CLI local content uses local names and API content uses canonical UUIDs for Manual references.
 
 ## 3. 예시 구조 (annotated skeleton)
 
@@ -48,7 +53,7 @@ trigger: >
 built_in_tools: []               # → 절차 전용 도구는 여기 귀속 + content에서 @tool: 참조
 config:
   tool_call_sound: typing
-# → content의 @manual:<주소 검증 매뉴얼 UUID> 대상은 같은 Agent 맵에 두고 trigger를 비운다
+# → CLI content uses @manual:address-validation; API content uses @manual:<canonical UUID>. The target belongs to the same Agent and has an empty trigger.
 ```
 
 ```markdown
@@ -75,8 +80,8 @@ config:
    → 가능한 모든 반응에 전이 명시. 갈 곳 없는 반응을 남기지 않는다
 
 ### 주소 재확인
-1. 새 주소가 필요하면 @manual:<주소 검증 매뉴얼 UUID> 절차로 주소를 확정한다.
-   → linked 체인 진입. 부모 content의 이 지시가 곧 진입 조건이다(후속 Manual의 trigger는 비움)
+1. 새 주소가 필요하면 @manual:address-validation 절차로 주소를 확정한다.
+   → CLI local-name; API payload에서는 canonical UUID로 치환한다. linked Manual의 trigger는 비운다.
 2. 주소가 확정되면 '완료'로 이동한다.
 
 ### 수집할 수 없는 경우

@@ -54,11 +54,13 @@ test("Manual data reference stays authoring-facing", () => {
   const bundled = read("plugins/vox-ai/skills/vox-agents/references/manual-data-reference.md");
 
   assert.equal(bundled, source, "manual-data-reference.md must match the plugin bundle");
-  assert.match(source, /@tool:<빌트인 name>/);
-  assert.match(source, /@tool:<커스텀 도구 UUID>/);
+  assert.match(source, /content에서 `@tool:<빌트인 name>`으로 참조한다/);
+  assert.match(source, /CLI custom Tool references use the same Agent's Tool bindings\/local names/);
   assert.match(source, /@manual:<UUID>/);
-  assert.match(source, /특정 Manual 이후에만 사용하는 후속 Manual은 `trigger`를 비우고 부모 content에서 `@manual:<UUID>`로 참조/);
-  assert.doesNotMatch(source, /linked_manual_ids/);
+  assert.match(source, /후속 Manual은 `trigger`를 비우고 부모 content에서 `@manual:<local-name>`\(CLI\) 또는 `@manual:<UUID>`\(API\)로 참조/);
+  assert.match(source, /`agents\/<agent>\/manuals\/<local-name>\/manual\.json`/);
+  assert.match(source, /`bindings\[<agent>\]\.manuals\[<local-name>\]`/);
+  assert.doesNotMatch(source, /^\s*`?(?:linked_manual_ids|tool_ids)`?\s*:/m);
   assert.match(source, /M1.*M2.*임시 식별자는 직접 작성하지 않는다/);
   assert.deepEqual(
     [...source.matchAll(/^## (\d+\..+)$/gm)].map((match) => match[1]),
@@ -73,8 +75,9 @@ test("Manual authoring guide avoids internal and unrelated implementation detail
   assert.equal(bundled, source, "manual-authoring.md must match the plugin bundle");
   assert.match(source, /trigger는 Manual을 언제 시작할지 판단하는 기준 문장/);
   assert.match(source, /절차 전용 도구.*해당 매뉴얼에 연결/);
-  assert.match(source, /후속 Manual을 같은 Agent의 `manuals` 맵에 두고 `trigger`를 비운 뒤/);
-  assert.doesNotMatch(source, /linked_manual_ids/);
+  assert.match(source, /같은 Agent가 소유한 Manual 사이에서 content의 `@manual:` 참조/);
+  assert.match(source, /`@manual:<local-name>`\(CLI\) 또는 `@manual:<UUID>`\(API\)/);
+  assert.doesNotMatch(source, /^\s*`?linked_manual_ids`?\s*:/m);
   assert.match(source, /Manual은 필요한 업무 상황에서만 시작하는 독립 절차/);
   assert.match(source, /M1 같은 임시 식별자는 본문·content에 하드코딩하지 않는다/);
 });
@@ -125,5 +128,5 @@ test("agent data teaches the agent-owned manuals map, not retired manualIds", ()
   assert.match(dataReference, /^### manuals$/m);
   assert.match(dataReference, /manualIds is retired/);
   assert.match(dataReference, /맵 전체가 교체된다/);
-  assert.doesNotMatch(read("skills/vox-agents/SKILL.md"), /vox agent attach manual/);
+  assert.match(read("skills/vox-agents/SKILL.md"), /Do not use .*vox agent attach manual/);
 });

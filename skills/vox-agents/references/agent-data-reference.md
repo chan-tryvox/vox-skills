@@ -52,7 +52,7 @@ and validation.
 
 - The supported types are `gpt_live`, `grok_voice`, and `gemini_live`. All are `single_prompt`-only. Existing Flow agents stay on `pipeline`; do not convert or migrate them.
 - On create, absent `runtime` or `{ "type": "pipeline" }` keeps pipeline behavior. On update, omitted `runtime` preserves the current mode.
-- Each native live runtime requires an explicit model and builtin voice. Grok Voice uses `grok-voice-think-fast-2.0`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025`. Fetch the current schema for the exact provider voice allowlist and casing. Gemini 3.1 and 3.8 are outside this contract.
+- Each native live runtime requires an explicit model and builtin voice. Grok Voice uses `grok-voice-think-fast-2.0`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025`. Exact provider voice IDs and casing are listed in `gpt-live-agent-data.json` and the current schema. Gemini 3.1 and 3.8 are outside this contract.
 - GPT-Live uses `gpt-live-1` and supports builtin voice names such as `marin`. It may also accept an organization-approved custom reference `{ "type": "custom", "id": "voice_..." }`. Grok Voice and Gemini Live require `{ "type": "builtin", "name": ... }` and reject `custom`.
 - `data.llm` remains the selectable text LLM for shared chat and live business work in `single_prompt`. Every new native live create requires `data.llm.model` from `list_llm_models`; do not invent `chatLlm` or implicitly map `data.llm` to another model.
 - Put native live voice configuration in `runtime.voice`, not pipeline `data.voice` or a TTS-only field. Do not send legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked incompatible by the current schema. Do not delete the whole `data.speech` object by guesswork.
@@ -73,7 +73,10 @@ and validation.
 - single-prompt Agent가 소유한 Manual 맵이다. 키는 Manual UUID이고, 값은 `name`·`trigger`·`content`·`built_in_tools`·`config`다. 맵 값 안의 필드는 snake_case다.
 - `manualIds`·`manual_ids`는 폐기됐다. create/update에 보내면 `manualIds is retired`로 거절된다. Manual을 따로 만들어 Agent에 붙이는 방식은 없고, Manual은 Agent 맵 안에만 있다.
 - update에서 `manuals`를 보내면 맵 전체가 교체된다. 생략하면 기존 맵이 유지된다. Manual 하나만 고칠 때도 `get_agent`로 현재 맵을 읽고 나머지 Manual을 그대로 포함한 전체 맵을 보낸다. 빈 `{}`를 보내면 모든 Manual이 삭제된다.
-- `trigger`가 채워진 Manual은 Agent가 직접 시작할 수 있는 진입 Manual이다. `trigger`가 빈 Manual은 다른 Manual content의 `@manual:<UUID>`로만 도달하는 후속 Manual이다.
+- API `data.manuals` values use snake_case. Keep this full-map write contract separate from CLI local files and scoped `/agents/{agent_id}/manuals` CRUD; the public MCP surface has no standalone Manual CRUD tools or global `/manuals` route.
+- `trigger`가 채워진 Manual은 Agent가 직접 시작할 수 있는 진입 Manual이다. `trigger`가 빈 Manual은 다른 Manual content의 `@manual:<UUID>`로만 도달하는 후속 Manual이다. API content uses canonical UUID references; CLI files use same-agent local names that the CLI resolves through `.vox/project.json` bindings.
+- CLI Manual files live at `agents/<agent>/manuals/<local-name>/manual.json`; IDs are stored in `bindings[<agent>].manuals[<local-name>]`. CLI `agent.json` does not include `data.manuals`, `manualIds`, or `manualRefs`.
+- Manual maps are frozen into Agent versions. A write to the current draft does not change production calls; saving a version and promoting it are separate approved steps.
 - flow Agent에는 Manual을 두지 않는다. 비어 있지 않은 맵은 배포 시 `MANUALS_UNSUPPORTED_AGENT_TYPE`으로 거절된다.
 - Manual이 있는 Agent는 `manual-review.md` 기준으로 진입·linked Manual과 Manual 소유 Tool을 재귀 검토한다.
 - Manual content·Trigger·`StartManual` 라우팅은 `manual-authoring.md`, 필드와 연결·참조 규칙은 `manual-data-reference.md`를 따른다.
@@ -90,6 +93,7 @@ and validation.
 ### speech
 
 - `isAllowInterruption`: 사용자가 에이전트 발화 중 끊을 수 있는지. 기본 `true`.
+- Grok Voice/Gemini Live는 유효한 값이 `true`여야 한다. 생성에서 생략하면 기본 `true`; PATCH에서 생략하면 현재 값을 유지한다. 기존 `false`에서 해당 런타임으로 전환할 때는 `true`를 명시한다. API는 `false`를 거부하며 자동으로 바꾸지 않는다. GPT-Live에는 이 제한이 없다.
 - `isAllowTurnDetection`: 턴 감지 활성화. 기본 `true`.
 - `responsiveness`: 0.0~2.0. 높을수록 빠르게 응답 시작. 기본 1.0.
 - `responsiveness` 는 latency 에 직접 영향을 주는 production default 다. 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하고, 자연스러움/안정성 개선을 추측해 `0.8` / `0.9` 로 낮추지 않는다.
@@ -140,14 +144,24 @@ get_schema(namespace="tool-schema", schema_type="<built-in-tool-schema>")
 
 ### update_agent
 
-현재 MCP 입력은 `agent_id`, `name`, `data`, `flow`, `flow_data` 기준이다. agent 설정 변경은 top-level shortcut 이 아니라 `data` 안의 sub-schema 로 보낸다. flow graph 수정은 새 작성 경로에서는 `flow` 를 사용하고, `flow_data` 는 legacy graph 유지보수 때만 쓴다.
+현재 MCP `update_agent` 입력은 `agent_id`, `name`, `data`, `flow`, `flow_data`, 필수 `expected_head_revision`, 선택적 `expected_flow_revision` 기준이다. agent 설정 변경은 top-level shortcut 이 아니라 `data` 안의 sub-schema 로 보낸다. flow graph 수정은 새 작성 경로에서는 `flow` 를 사용하고, `flow_data` 는 legacy graph 전체 교체 때만 쓴다.
 
 동작:
-1. 기존 `agent.data`를 읽음
+1. `get_agent`로 현재 편집본의 `agent.data`, `head_revision`, `flow_revision`을 읽음
 2. 변경할 sub-schema 의 현재 값을 보존해야 하면 전체 subtree 를 다시 구성
 3. `get_schema(namespace="agent-schema", schema_type="agent-data-update")` 로 update shape 확인
-4. `update_agent(agent_id=..., data=...)` 호출
-5. `get_agent()`로 round-trip 확인
+4. `expected_head_revision`에 앞서 읽은 값을 지정. Flow 그래프 전체를 바꾸면 같은 조회의 `flow_revision`을 `expected_flow_revision`으로 지정
+5. `update_agent(agent_id=..., expected_head_revision=..., data=...)` 호출
+6. `get_agent`로 round-trip 확인
+
+`REVISION_CONFLICT`를 받으면 자동으로 다시 읽고 blind retry하지 않는다. 변경된 설정을
+사용자에게 알리고, 사용자가 최신 상태와 요청 변경을 확인해 병합한 뒤 새 revision으로
+재요청한다.
+
+CLI `agent version save`는 현재 `head_revision`과 Flow이면 `flow_revision`을 사용해
+스냅샷을 만들고 `promote: false`를 지정한다. CLI `agent promote`에는 현재 production
+version 또는 `null`을 `expected_production_version`으로 전달한다. public MCP에는
+버전 create/publish/restore 도구가 없고 CLI에는 version restore/duplicate 명령이 없다.
 
 single_prompt native live 전환:
 
@@ -155,7 +169,12 @@ single_prompt native live 전환:
 - native live → pipeline: `runtime: {"type": "pipeline"}`과 pipeline용 `stt`, `voice`를 명시한다. `runtime.voice`에서 pipeline 음성을 추측하지 않는다.
 - native live 수정: `data.stt`/`data.voice`가 `null`이거나 응답에서 생략될 수 있으므로 `runtime`을 기준으로 round-trip을 확인한다.
 
-**sub-schema replacement semantics가 핵심이다** — `builtInTools`에 `end_call` 하나만 넣으면 기존 도구가 전부 사라질 수 있다. 기존 도구 객체를 schema 기본값으로 다시 만들면 전환 대상, SMS 발신/본문 설정, DTMF interrupt, 종료 도구 실행 중 발화 같은 tool-level 설정도 사라진다. 반드시 `get_agent()`로 현재 값을 읽고, 수정 후 보존할 sibling 값을 함께 다시 보내라.
+**병합 범위를 구분한다.** `data`에서 생략한 top-level 설정은 기존 값을 유지하고,
+일반 객체는 한 단계 병합하며 배열은 전체 교체한다. `runtime`, `manuals`,
+`presetDynamicVariables`는 보내면 전체 값을 원자적으로 교체한다. `builtInTools`도 배열
+전체 교체 방식이므로 `end_call` 하나만 보내면 기존 도구가 모두 사라진다. 현재
+`runtime`/manual 맵/도구 배열을 보존해야 하면 `get_agent`에서 읽고
+의도한 전체 subtree를 보낸다. API나 CLI revision 충돌을 자동 재시도로 덮어쓰지 않는다.
 
 ## 실전 예시
 
@@ -183,6 +202,7 @@ list_llm_models()
 
 update_agent(
   agent_id="agent-uuid",
+  expected_head_revision=17,  # 예시 값: 직전 get_agent 응답에서 관찰한 값
   data={
     "prompt": {"prompt": "수정된 프롬프트..."},
     "llm": {"model": "<list_llm_models 결과에서 선택>", "temperature": 0.2}
@@ -204,6 +224,7 @@ get_agent(agent_id="agent-uuid")
 # 3. 기존 + 신규를 합쳐서 전체를 보냄
 update_agent(
   agent_id="agent-uuid",
+  expected_head_revision=17,  # 예시 값: 직전 get_agent 응답에서 관찰한 값
   data={
     "builtInTools": [
       {"toolType": "end_call", "name": "end_call"},

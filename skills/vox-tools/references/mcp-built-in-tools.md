@@ -2,7 +2,7 @@
 
 빌트인 도구(end_call, transfer_call, transfer_agent, send_sms, send_dtmf, search_address)의 장착, 해제 및 타입별 파라미터 상세입니다. 현재 제공되는 전체 목록은 `list_schemas(namespace="tool-schema", category="built_in")` 결과가 정본입니다 — 이 문서에 없는 toolType이 조회되면 schema를 따르세요.
 
-빌트인 도구는 별도 생성/연결 엔드포인트가 없습니다. 에이전트 데이터 객체의 `data.builtInTools[]` 배열로 존재하며, 이 배열을 `create_agent` / `update_agent(data={"builtInTools": [...]})`로 통째로 보내서 장착·해제합니다.
+빌트인 도구는 별도 생성/연결 엔드포인트가 없습니다. 에이전트 데이터 객체의 `data.builtInTools[]` 배열로 존재하며, 이 배열을 `create_agent` / `update_agent(expected_head_revision=..., data={"builtInTools": [...]})`로 통째로 보내서 장착·해제합니다.
 
 ## payload 스키마 조회: list_schemas / get_schema
 
@@ -13,11 +13,11 @@ list_schemas(namespace="tool-schema", category="built_in", include_schema=true)
 get_schema(namespace="tool-schema", schema_type="transfer_agent")
 ```
 
-## 장착: update_agent(data={"builtInTools": [...]})
+## 장착: update_agent(expected_head_revision=..., data={"builtInTools": [...]})
 
 `builtInTools`는 배열 전체 교체(replace) 방식입니다. `toolType`에 따라 item 객체 구조가 다릅니다.
 
-수정 전에는 `get_agent()`로 현재 `data.builtInTools`를 읽고, 기본값이 아닌 tool-level 설정을 보존합니다. 프롬프트/LLM만 바꾸는 업데이트라면 `builtInTools`를 보내지 않습니다. backend PATCH는 전송되지 않은 `data` sub-key를 유지하지만, `builtInTools`를 전송하면 그 배열 전체를 교체합니다.
+수정 전에는 `get_agent()`로 현재 `data.builtInTools`와 `head_revision`을 읽고, 기본값이 아닌 tool-level 설정을 보존합니다. 모든 `update_agent` 쓰기에 관찰한 `head_revision`을 필수 `expected_head_revision`으로 전달하세요. `REVISION_CONFLICT`를 자동 재시도하지 않습니다. 프롬프트/LLM만 바꾸는 업데이트라면 `builtInTools`를 보내지 않습니다. backend PATCH는 전송되지 않은 `data` sub-key를 유지하지만, `builtInTools`를 전송하면 그 배열 전체를 교체합니다.
 
 ### end_call
 
@@ -168,13 +168,14 @@ IVR 메뉴 탐색을 위한 DTMF 톤을 전송합니다.
 | `send_dtmf` | `allowInterruption` |
 | `search_address` | `speakDuringExecution`, `allowInterruptionDuringExecution`, `toolCallSound` |
 
-## 해제: update_agent(data={"builtInTools": [...]})
+## 해제: update_agent(expected_head_revision=..., data={"builtInTools": [...]})
 
 별도 해제 엔드포인트는 없습니다. 제거하려는 도구를 **제외한** 최종 배열을 `update_agent`로 다시 보내면 해당 도구가 빠집니다.
 
 ```
 update_agent(
   agent_id="agent-uuid",
+  expected_head_revision=<head_revision from get_agent>,
   data={
     "builtInTools": [
       {"toolType": "transfer_call", "name": "transfer_to_agent", "transferConfigurations": [{"transferType": "phone", "transferTo": "010-1234-5678"}]}

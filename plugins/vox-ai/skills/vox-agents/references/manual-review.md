@@ -4,15 +4,15 @@ Manual이 있는 Agent는 본문 prompt와 진입 Manual만 따로 검토하지 
 
 ## 검토 범위
 
-1. Agent의 `data.manuals` 맵(로컬 CLI 프로젝트는 `agents/<agent>/manuals/`)에서 `trigger`가 채워진 진입 Manual을 수집한다.
-2. 각 Manual content의 `@manual:` 참조를 따라 같은 Agent 맵 안의 linked Manual을 수집한다.
+1. Agent의 API `data.manuals` UUID map 또는 해당 CLI Agent의 `agents/<agent>/manuals/` files에서 원본을 수집하고, `trigger`가 채워진 진입 Manual을 식별한다.
+2. 각 Manual content의 `@manual:` 참조를 따라 같은 Agent map 안의 linked Manual을 수집한다.
 3. linked Manual의 content도 같은 방식으로 재귀 탐색한다.
 4. 같은 Manual은 한 번만 검토한다.
 5. 탐색 중인 경로에서 이미 방문 중인 Manual을 다시 만나면 순환 참조로 판정한다.
 6. 각 Manual의 `@tool:` 참조와 실제 소유 built-in Tool·참조한 custom Tool을 함께 검토한다.
 7. `trigger`가 비어 있고 어떤 Manual에서도 참조되지 않는 Manual은 도달할 수 없으므로 따로 표시한다.
 
-원격 Manual을 다룰 때 Vox CLI를 사용할 수 있으면 `vox agent pull`과 `vox manual pull --agent <agent>`로 로컬 Agent-as-Code 프로젝트에 가져온 뒤 검토한다. CLI가 없으면 MCP `get_agent` 결과의 `data.manuals` 맵이나 사용자가 제공한 Agent JSON 범위 안에서 검토한다. 공개 vox MCP surface에는 Manual 단건 CRUD Tool이 없으므로 존재하지 않는 MCP Tool을 가정하지 않고, 확인하지 못한 대상은 미검증으로 명시한다.
+API-owned Manual은 inline `data.manuals` map 또는 `get_agent` 결과에서 검토한다. CLI `agent pull`과 `vox manual pull --agent <agent>`는 current map을 `agents/<agent>/manuals/<local-name>/manual.json` files로 materialize하고 binding을 `.vox/project.json`의 `bindings[<agent>].manuals`에 기록한다. CLI `agent.json`에는 `data.manuals`, `manualIds`, `manualRefs`를 넣지 않는다. 공개 vox MCP surface에는 standalone Manual CRUD tool이 없다. CLI Manual tools are agent-scoped; there is no organization-wide Manual list or global `/manuals` route. 확인할 수 없는 linked 대상은 미검증으로 명시한다.
 
 ## 탐색 결과
 
@@ -82,6 +82,8 @@ node <vox-agents 스킬 디렉터리>/scripts/review-manual-tree.mjs \
 ```
 
 스크립트는 `agents/<agent>/manuals/*/manual.json`, `.vox/project.json`의 `bindings[<agent>].manuals`와 `tool_bindings`, content의 `@manual:`·`@tool:` 참조를 읽는다. `--agent-file`에 `data.manuals` 맵이 든 Agent JSON(예: `get_agent` 결과)을 주면 그 맵을 검토한다. Critical이 있으면 1, `--strict`에서 Warning이 있으면 2로 종료한다. 스크립트 통과는 정적 품질 검사이며 실제 런타임 발화·TTS·대기음 재생을 증명하지 않는다.
+
+The checker scopes CLI Manuals to the requested Agent and does not resolve another Agent's same-name or UUID-bound entries. Entry Manual cycles are Warnings; cycles through trigger-less linked Manuals are Critical.
 
 ## 완료 기준
 

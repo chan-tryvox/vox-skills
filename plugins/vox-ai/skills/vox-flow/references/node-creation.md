@@ -115,4 +115,4 @@
 9. 업무 성공 뒤 SMS 실패 fallback 이 있으면, fallback target 이 generic failure 가 아니라 "업무는 완료, 문자만 실패" 종료 멘트인지 확인한다.
 10. flow graph 만 생성/검증하면 agent 최상위 `data` 는 생략한다. agent-level 설정을 실제로 바꿀 때만 schema 를 확인하고 필요한 subtree 만 보낸다.
 11. `validate_flow(flow=..., level="all")` 로 dry-run. `errors === []` 일 때만 다음 단계로 간다. `advisories` 는 사용자에게 한 줄로 전달한다.
-12. `create_agent(flow=...)` / `update_agent(flow=...)` 후 `get_agent` 로 round-trip 확인한다. 기존 flow 의 노드/엣지 몇 개만 바꿔도 public `flow` 는 전체 graph replacement 이므로, 변경하지 않는 nodes/edges 를 그대로 보존해서 다시 보낸다.
+12. `create_agent(flow=...)` / `update_agent(flow=...)` 후 `get_agent` 로 round-trip 확인한다. 기존 flow 의 노드/엣지 몇 개만 바꿔도 public `flow` 는 전체 graph replacement 이므로, 변경하지 않는 nodes/edges 를 그대로 보존해서 다시 보낸다. `update_agent`에는 읽은 `head_revision`을 `expected_head_revision`으로 전달하고 Flow 전체 교체에는 `flow_revision`도 `expected_flow_revision`으로 전달한다. `REVISION_CONFLICT`는 자동 재시도하지 않는다.

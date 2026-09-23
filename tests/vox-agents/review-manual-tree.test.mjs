@@ -31,8 +31,8 @@ function bindManual(workspace, localName, manualId) {
   writeState(workspace, state);
 }
 
-function writeManual(workspace, localName, { content, trigger = ENTRY_TRIGGER, sound = "typing", builtInTools = [] }) {
-  const dir = path.join(workspace, "agents", "demo", "manuals", localName);
+function writeManual(workspace, localName, { content, trigger = ENTRY_TRIGGER, sound = "typing", builtInTools = [] }, agentName = "demo") {
+  const dir = path.join(workspace, "agents", agentName, "manuals", localName);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, "manual.json"),
@@ -231,4 +231,29 @@ test("reviews the inline data.manuals map of a remote agent JSON", () => {
   assert.equal(result.summary.linked_manual_count, 1);
   assert.equal(result.summary.critical, 0);
   assert.ok(result.findings.some((finding) => finding.code === "MANUAL_CUSTOM_TOOL_UNVERIFIED"));
+});
+
+test("does not resolve another agent's same-name or UUID-bound Manual", () => {
+  const workspace = makeWorkspace();
+  const otherId = "33333333-3333-4333-8333-333333333333";
+  writeState(workspace, {
+    bindings: {
+      demo: { agent_id: "00000000-0000-4000-8000-000000000001", manuals: {} },
+      other: { agent_id: "00000000-0000-4000-8000-000000000002", manuals: { shared: { manual_id: otherId } } },
+    },
+    tool_bindings: {},
+  });
+  writeManual(workspace, "root", {
+    content: `${validContent}\n@manual:shared\n@manual:${otherId}`,
+  });
+  writeManual(workspace, "shared", { content: validContent }, "other");
+
+  const result = reviewManualTree({ workspace, agent: "demo" });
+  const missingRefs = result.findings.filter((finding) => finding.code === "MANUAL_NOT_FOUND");
+
+  assert.equal(result.valid, false);
+  assert.equal(result.summary.total_manual_count, 1);
+  assert.equal(missingRefs.length, 2);
+  assert.ok(missingRefs.some((finding) => finding.message.includes("@manual:shared")));
+  assert.ok(missingRefs.some((finding) => finding.message.includes(`@manual:${otherId}`)));
 });

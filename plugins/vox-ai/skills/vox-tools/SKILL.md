@@ -24,8 +24,10 @@ MCP 서버 연결 설정(Claude, Cursor, ChatGPT 등)은 `vox-onboarding` 스킬
 1. `list_schemas(namespace="tool-schema", category="built_in", include_schema=true)` 또는 `get_schema(namespace="tool-schema", schema_type="<toolType>")`로 현재 built-in 목록과 payload shape를 확인한다. 커스텀 도구는 `list_tools()`로 `uid`를 확인한다.
 2. `get_agent()`로 현재 `data.builtInTools`와 `data.toolIds`를 읽는다.
 3. 기존 항목을 그대로 두고 추가/제거만 반영한 **전체 배열**을 만든다. 기존 도구 객체의 `speakDuringExecution`, `transferConfigurations`, `responseMode` 같은 설정은 손대지 않는다.
-4. 유저가 "적용/업데이트"를 명시했을 때만 `update_agent(agent_id=..., data={"builtInTools": [...]} | {"toolIds": [...]})`를 호출한다.
+4. Only call `update_agent(agent_id=..., expected_head_revision=<get_agent.head_revision>, data={"builtInTools": [...]} | {"toolIds": [...]})` after the user explicitly authorizes the write.
 5. `get_agent()`로 round-trip 확인한다.
+
+Every `update_agent` write must use the caller-observed `expected_head_revision` from the current `get_agent` result. Surface `REVISION_CONFLICT` without a blind retry.
 
 ## Core Operating Rules
 
