@@ -89,7 +89,7 @@ flow agent 설계물(flowchart + 노드 상세 설계)을 체크리스트 기반
 | D3 | CRITICAL | fallback edge 누락 | 실패/else/default path 가 필요한데 `flow.edges` 에 명시하지 않고 자동 생성된다고 가정 |
 | D4 | WARN | round-trip 미확인 | `create_agent` / `update_agent` 후 `get_agent` 로 unknown field drop 여부를 확인하지 않음 |
 | D5 | WARN | agent data schema 미확인 | agent `data` 를 함께 보냈는데 `agent-schema` create/update schema 를 확인하지 않음 |
-| D6 | WARN | legacy partial helper 사용 | 새 flow 작성/수정인데 `update_agent_partial` 또는 `flow_data` 를 사용하려는가. legacy `flow_data` graph 유지보수일 때만 허용 |
+| D6 | CRITICAL | retired partial helper 또는 legacy graph 사용 | `update_agent_partial` 은 현재 클라이언트가 로컬에서 거부하며 요청을 보내지 않는다. `flow_data` 는 기존 legacy graph 전체 교체에만 사용하고, 새 graph에는 public `flow` 를 사용한다. |
 | D7 | CRITICAL | public flow field casing 오류 | public `flow` node `data` 에 `promptType` / `apiConfiguration` / `toolId` 같은 camelCase key 를 넣음. 최신 public `flow` 는 `prompt_type` / `api_configuration` / `tool_id` 같은 snake_case 를 사용 |
 | D8 | CRITICAL | 실행 불가능 edge | begin 으로 들어가는 edge, endCall 에서 나가는 edge, note 로 들어가거나 나가는 edge, 또는 condition node 에서 나가는 `ai` edge 를 만들었는가 |
 | D9 | CRITICAL | deprecated node write 시도 | public `flow` 로 저장하려는 graph 에 `function` 또는 legacy `knowledge` node 가 남아 있는가. 조회 결과에는 보일 수 있지만 public `flow` write 에서는 거절되므로 마이그레이션 필요 |

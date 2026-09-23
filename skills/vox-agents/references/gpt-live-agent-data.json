@@ -1,5 +1,5 @@
 {
-  "_note": "Illustrative native live shapes. Read the current agent schema and text LLM catalog before sending a request. Provider model IDs below are the supported contract; voice examples are not implicit defaults. Use the schema for exact builtin voice allowlists and casing.",
+  "_note": "Illustrative native live shapes. Read the current agent schema and text LLM catalog before sending a request. Provider model IDs and builtin voice IDs below are the supported contract; examples are not implicit defaults.",
   "create_single_prompt": {
     "name": "업무 상담 에이전트",
     "type": "single_prompt",
@@ -36,6 +36,27 @@
       "name": "Puck"
     }
   },
+  "builtin_voice_catalogs": {
+    "grok_voice": {
+      "model": "grok-voice-think-fast-2.0",
+      "name_case": "lowercase",
+      "names": [
+        "carina", "zagan", "helix", "orion", "luna", "iris", "altair", "zenith",
+        "perseus", "helios", "lux", "kepler", "rigel", "cosmo", "celeste", "ursa",
+        "sirius", "lumen", "castor", "naksh", "atlas", "ara", "eve", "leo", "rex", "sal"
+      ]
+    },
+    "gemini_live": {
+      "model": "gemini-2.5-flash-native-audio-preview-12-2025",
+      "name_case": "case-sensitive",
+      "names": [
+        "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe",
+        "Charon", "Despina", "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore",
+        "Laomedeia", "Leda", "Orus", "Pulcherrima", "Puck", "Rasalgethi", "Sadachbia",
+        "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
+      ]
+    }
+  },
   "custom_voice_runtime_reference": {
     "type": "gpt_live",
     "model": "gpt-live-1",
@@ -67,11 +88,13 @@
     "On create, a missing runtime and runtime.type=pipeline preserve existing pipeline behavior; on update, an omitted runtime preserves the current mode.",
     "Every new native live create requires data.llm.model for shared chat and delegated text reasoning; do not invent chatLlm or fallback models.",
     "Grok Voice requires grok-voice-think-fast-2.0 and Gemini Live requires gemini-2.5-flash-native-audio-preview-12-2025. Gemini 3.1 and 3.8 are outside this contract.",
-    "All native live writes require explicit provider builtin voice values. Read the agent schema for exact allowlists and casing; these examples do not set defaults.",
+    "All native live writes require an explicit runtime model and voice shaped as {type: builtin, name: provider_voice_id}; no model or voice default is implied.",
+    "Use only the exact IDs in builtin_voice_catalogs. Grok IDs are lowercase; Gemini IDs are case-sensitive. Grok and Gemini reject custom voice objects.",
     "Grok Voice and Gemini Live reject custom voices. The GPT-Live custom reference applies only to GPT-Live, does not provision a voice or grant authorization, and requires separate provider access and quality validation.",
     "Native live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked incompatible by the current schema; do not remove data.speech wholesale.",
     "The pipeline-to-live update keeps existing data.llm unless explicitly changed. The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
     "Native live reads may omit stt/voice or return them as null.",
+    "For Grok Voice and Gemini Live, effective data.speech.isAllowInterruption must be true. Create omission uses the true default; PATCH omission preserves the current value, so explicitly send true when switching from a stored false value. The API rejects false and does not force it to true; GPT-Live behavior is unchanged.",
     "Existing pipeline voice settings remain unchanged and are not migrated.",
     "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a native live feature and must not be rewritten to a native live model."
   ]

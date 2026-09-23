@@ -67,10 +67,11 @@ and read `references/gpt-live-agent-data.json` before assembling a payload:
 
 - The current runtime types are `gpt_live`, `grok_voice`, and `gemini_live`. All support `single_prompt` agents only. Keep Flow agents on `pipeline`; do not convert or migrate them.
 - On create, absent `data.runtime` or `{ "type": "pipeline" }` keeps the existing pipeline behavior. On PATCH/update, an omitted `runtime` preserves the current mode.
-- Every native live write requires an explicit provider model and builtin voice. Grok Voice uses `grok-voice-think-fast-2.0`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025`. Read the current agent schema for exact voice allowlists and casing. Gemini 3.1 and 3.8 are not supported by this contract.
-- GPT-Live uses model `gpt-live-1`; it accepts builtin voices and an organization-approved custom reference. Grok Voice and Gemini Live accept builtin voices only and reject `custom`.
+- When a native runtime is present, its provider model and voice must be explicit. Grok Voice uses `grok-voice-think-fast-2.0` with lowercase builtin IDs from `builtin_voice_catalogs.grok_voice.names`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025` with case-sensitive builtin IDs from `builtin_voice_catalogs.gemini_live.names`. The exact lists are in `references/gpt-live-agent-data.json` and the live agent schema. Gemini 3.1 and 3.8 are not supported by this contract.
+- GPT-Live uses model `gpt-live-1`; it accepts builtin voices and an organization-approved custom reference. Grok Voice and Gemini Live require `{ "type": "builtin", "name": "..." }` and reject `custom`.
 - Keep `data.llm` as the selectable text LLM for shared chat and live business work in `single_prompt`. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new native live create, require `data.llm.model`; select it from `list_llm_models`.
 - Put native live voice configuration in `data.runtime.voice`, never in pipeline `data.voice` or a TTS-only field. Do not include legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked incompatible by the current schema; do not delete or copy the whole `data.speech` object by guesswork. Inherited pipeline defaults are removed after effective merge.
+- Grok Voice and Gemini Live require effective `data.speech.isAllowInterruption: true`. Create omission uses the `true` default, but PATCH omission preserves the existing value. If a pipeline agent currently stores `false`, explicitly send `true` when switching to either provider; `false` is rejected and never silently rewritten. GPT-Live behavior is unchanged.
 - A pipeline-to-live update retains the existing `data.llm` unless explicitly changed. A live-to-pipeline update must explicitly provide pipeline `stt` and `voice`; never infer them from `runtime.voice`.
 - Reads may return `data.stt` or `data.voice` as `null` or omit them for any native live runtime. Check `data.runtime` first and do not treat absent legacy fields as a migration failure.
 - GPT-Live custom references do not provision voices or grant authorization; validate provider access and voice quality separately. Existing pipeline voice settings remain unchanged and are not migrated.
@@ -134,17 +135,22 @@ skill.
 - `get_schema(namespace='agent-schema', schema_type='agent-data-update')` — `update_agent.data` shape 확인
 - `get_schema(namespace='flow-schema', schema_type='flow-data')` — flow agent graph shape 확인 (필요 시 `vox-flow`로 handoff)
 
-공개 vox MCP surface에는 Manual 단건 CRUD Tool이 없다. Manual은 `agent.data.manuals` 맵(키=Manual UUID)으로 Agent에 속하므로 `get_agent`로 읽을 수 있고, 쓰기는 맵 전체 교체다(`agent-data-reference.md`). Manual 원격 작업은 Vox CLI가 설치된 환경에서 아래 명령을 사용하고, CLI가 없으면 Manual 초안·검토 결과를 산출하되 원격 적용이 미검증임을 명시한다.
+The public vox MCP surface has no standalone Manual CRUD tools. Do not invent Manual create/get tools. The v3 API uses agent-owned `data.manuals` and `/agents/{agent_id}/manuals` subresources instead of global `/manuals`; never send `manualIds`.
+The API also returns agent-owned Manuals inline in `data.manuals`; when that map is written through agent create/update, it is a full replacement. Keep this wire contract distinct from the CLI's local Manual files and scoped CRUD. Do not use `manualRefs`, global Manual bindings, or `vox agent attach manual`.
 
-### Vox CLI (Manual, when available)
+### Vox CLI (Manual authoring, when available)
 
-설치 여부는 먼저 `command -v vox`(또는 `vox --version`)로 확인한다. 없으면 아래 명령을 시도하지 말고 초안·검토 결과만 낸다. `vox manual list --help`에 `--agent`가 없으면 폐기된 조직 단위 Manual을 쓰는 구버전 CLI이므로 업데이트한 뒤 사용한다.
+Check CLI availability with `command -v vox` or `vox --version`. If unavailable, do not try the commands below; provide only the draft/review result and state that remote application was not verified. Manuals are scoped to their owning agent; there is no organization-wide Manual list.
 
-- `vox manual list --agent <agent> --json` / `vox manual pull --agent <agent> --json`
-- `vox manual init <agent> <local-name> --name "<이름>" --trigger "<trigger>" --tool-call-sound typing --json`
-- `vox manual validate <agent> <local-name> --json`
-- `vox manual push --agent <agent> --dry-run --json` → 승인된 적용 작업에서만 실제 push. push는 그 Agent의 Manual 맵 전체를 한 번에 교체한다.
-- `vox agent version save --agent <agent> --json` → `vox agent promote --agent <agent> <version> --yes --json` — Manual은 Agent 버전에 동결되므로 push만으로는 프로덕션 통화가 바뀌지 않는다. 통화에 반영해야 하면 이 두 단계까지 안내한다.
+- CLI Manual source files live at `agents/<agent>/manuals/<local-name>/manual.json`. `.vox/project.json` stores each local-name-to-UUID binding at `bindings[<agent>].manuals`.
+- `vox manual list --agent <agent> --json` lists that agent's local Manual files. `vox manual init <agent> <local-name> --name "<name>" --trigger "<trigger>" --tool-call-sound typing --json` creates a file; `vox manual validate <agent> <local-name> --json` and `vox manual explain <agent> <local-name> <json-pointer> --json` are local checks.
+- `vox agent pull --agent <agent>` and `vox manual pull --agent <agent>` materialize the API `data.manuals` map into the scoped files and bindings. Historical `production`/`vN` pulls are read-only previews and do not write files.
+- Manual content uses `@tool:<local-name>` and `@manual:<local-name>` references scoped to the same agent. The CLI compiles them to API IDs when pushing; it does not use `manualRefs` or `vox agent attach manual`.
+- `vox manual push --agent <agent> --dry-run --json` previews a full-map write. After explicit user approval, `vox manual push --agent <agent> --json` writes the compiled `data.manuals` map with the current revision guard. To remove remote-only entries, require `--delete-extra --yes`.
+- `vox manual status <agent> [local-name]` and `vox manual diff <agent> [local-name]` compare against current remote state. Their `--offline` mode reads existing snapshots only.
+- `vox manual delete <agent> <local-name> --yes --json` deletes one scoped Manual; clearing the whole map requires `vox manual delete <agent> --all --yes --json`.
+- CLI `agent.json` must not contain `data.manuals`, `manualIds`, or `manualRefs`. Do not author the generated UUID-keyed API map directly in a CLI agent file.
+- Agent versions freeze their Manual map. A manual push updates the current draft but does not change production calls; after explicit approval to publish, use `vox agent version save --agent <agent> --json` then `vox agent promote --agent <agent> <version> --yes --json`.
 - `node <이 스킬 디렉터리>/scripts/review-manual-tree.mjs --workspace <path> --agent <local-name> --json [--strict]` — 이 SKILL.md와 같은 디렉터리의 `scripts/`에 있다(플러그인 설치본에서는 `${CLAUDE_PLUGIN_ROOT}/skills/vox-agents/scripts/...`). exit 0 통과, 1 Critical, `--strict`에서 Warning이면 2.
 
 ### Docs (vox-docs search)

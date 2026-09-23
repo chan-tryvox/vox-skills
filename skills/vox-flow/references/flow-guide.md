@@ -326,6 +326,10 @@ flow graph 만 다루는 작업이면 agent 최상위 `data` 를 생략한다. a
 5. blocking `errors` 가 없을 때 `create_agent(type="flow", data=..., flow=...)` 또는 `update_agent(flow=...)` 를 호출한다.
 6. `get_agent` 로 다시 읽어 unknown field drop, enum mismatch, 누락 edge 를 확인한다.
 
+`update_agent`에는 앞서 읽은 `expected_head_revision`을 항상 전달한다. Flow 전체를 바꾸면
+같은 응답의 `flow_revision`도 `expected_flow_revision`으로 전달한다. `REVISION_CONFLICT`를
+자동 재시도하지 않는다.
+
 기존 flow 를 수정할 때 `get_agent` 결과에 `function` 또는 legacy `knowledge` node 가 보일 수 있다. 이 node 들은 호환성을 위해 read 에는 노출되지만 public `flow` write 에서는 거절된다. `update_agent(flow=...)` 전에 `function`은 `tool`/`api`로, legacy `knowledge`는 conversation node-level knowledge 설정으로 마이그레이션한다.
 
 ### 생성
@@ -360,15 +364,21 @@ REST:
 ```jsonc
 PATCH /v3/agents/{id}
 {
+  "expected_head_revision": 17,
+  "expected_flow_revision": 4,
   "flow": { "nodes": [...], "edges": [...] }
 }
 ```
+
+예시 revision 값은 설명용입니다. 실제 값은 직전 `GET /v3/agents/{id}?version=current` 응답에서 확인하세요.
 
 vox.ai MCP:
 
 ```text
 update_agent(
   agent_id="<UUID>",
+  expected_head_revision=<get_agent.head_revision>,
+  expected_flow_revision=<get_agent.flow_revision>,
   flow={ "nodes": [...], "edges": [...] }
 )
 ```
@@ -377,7 +387,7 @@ update_agent(
 
 ### Legacy `flow_data`
 
-`validate_flow_data`, `autofix_flow_data`, `update_agent_partial`, `update_agent(flow_data=...)` 는 legacy `flow_data` graph 전용이다. 새 flow 작성에는 쓰지 않는다. 기존 legacy graph 를 유지보수해야 하거나 deprecated node 를 아직 마이그레이션할 수 없는 경우에만 해당 도구 설명과 schema endpoint 결과를 따른다.
+`validate_flow_data`와 `autofix_flow_data`는 legacy `flow_data` graph용 검증 도구다. 현재 `update_agent_partial` 이름은 비활성화되어 클라이언트가 로컬에서 거부하며 API 요청을 보내지 않는다. 기존 legacy graph를 유지해야 할 때만 `update_agent(flow_data=전체_그래프, expected_head_revision=...)`로 전체 교체한다. 새 작성에는 사용하지 않는다.
 
 ### 조회
 

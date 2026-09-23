@@ -187,9 +187,9 @@ Manual이 값을 수집했다는 사실은 외부 업무가 처리됐다는 뜻�
 
 ## 6. linked 매뉴얼 체인
 
-매뉴얼에서 다른 매뉴얼로 이어지는 절차는 후속 Manual을 같은 Agent의 `manuals` 맵에 두고 `trigger`를 비운 뒤, 부모 content에서 `@manual:<UUID>`로 참조한다. 별도 연결 필드는 없다.
+매뉴얼에서 다른 매뉴얼로 이어지는 절차는 같은 Agent가 소유한 Manual 사이에서 content의 `@manual:` 참조로 연결한다. CLI 로컬 content에서는 같은 Agent의 local-name을 쓰고, CLI push가 binding을 사용해 API canonical UUID로 변환한다. API `data.manuals` content에는 canonical UUID를 직접 쓴다. 별도 `linked_manual_ids` 필드는 보내지 않는다.
 
-- **진입 vs linked 선택**: Agent 본문에서 바로 시작해야 하면 `trigger`를 채운 진입 Manual로 두고, 특정 Manual의 절차 안에서만 사용하는 후속 절차면 `trigger`를 비운다. `trigger`를 채운 Manual은 부모를 거치지 않고도 시작될 수 있다. 후속 Manual의 진입 조건은 부모 content에 상황형 문장으로 명시한다.
+- **진입 vs linked 선택**: Agent 본문에서 바로 시작해야 하면 `trigger`를 채운 진입 Manual로 둔다. 특정 Manual의 절차 안에서만 사용하는 후속 절차는 `trigger`를 비우고 부모 content에서 `@manual:<local-name>`(CLI) 또는 `@manual:<UUID>`(API)로 참조한다. 진입 Manual은 부모를 거치지 않고도 시작될 수 있다. 후속 Manual의 진입 조건은 부모 content에 상황형 문장으로 명시한다.
 - 체인이 깊어지면(3단 이상) 절차 추적이 어려워진다. 2단을 기본으로, 그 이상이면 flow 전환을 검토한다.
 
 ## 7. 함정 체크리스트
