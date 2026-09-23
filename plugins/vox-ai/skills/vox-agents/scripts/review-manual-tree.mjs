@@ -211,18 +211,31 @@ export function reviewManualTree({ workspace, agent, agentFile }) {
   const nodes = [];
   const visited = new Set();
   const active = new Set();
+  const activePath = [];
   let maxDepth = 0;
 
   function visit(localName, depth, from) {
     maxDepth = Math.max(maxDepth, depth);
     if (active.has(localName)) {
-      addFinding(findings, "critical", "MANUAL_CYCLE", localName, index.manuals.get(localName)?.filePath, `Manual cycle detected at '${localName}'.`);
+      // Entry Manuals may hand off to each other (A -> B -> A); the platform accepts that graph.
+      // A loop that runs through a trigger-less follow-up Manual has no way out and is a defect.
+      const cycle = activePath.slice(activePath.indexOf(localName));
+      const handOff = cycle.every((name) => isEntry(index.manuals.get(name).manual));
+      addFinding(
+        findings,
+        handOff ? "warning" : "critical",
+        "MANUAL_CYCLE",
+        localName,
+        index.manuals.get(localName)?.filePath,
+        `Manual cycle detected at '${localName}' (${cycle.join(" -> ")} -> ${localName})${handOff ? "; all entry Manuals, confirm the hand-off is intended" : ""}.`,
+      );
       return;
     }
     if (visited.has(localName)) return;
 
     const node = index.manuals.get(localName);
     active.add(localName);
+    activePath.push(localName);
     const reviewed = reviewOneManual(node, index, findings);
     nodes.push({ ...reviewed, depth, from });
     if (depth > 2) {
@@ -237,6 +250,7 @@ export function reviewManualTree({ workspace, agent, agentFile }) {
       visit(child, depth + 1, localName);
     }
     active.delete(localName);
+    activePath.pop();
     visited.add(localName);
   }
 

@@ -117,6 +117,18 @@ test("detects a linked Manual cycle", () => {
   assert.ok(result.findings.some((finding) => finding.code === "MANUAL_CYCLE"));
 });
 
+test("a cycle made only of entry Manuals is a hand-off warning, not a critical", () => {
+  const workspace = makeWorkspace();
+  writeManual(workspace, "a", { content: `${validContent}\n@manual:b` });
+  writeManual(workspace, "b", { content: `${validContent}\n@manual:a` });
+
+  const result = reviewManualTree({ workspace, agent: "demo" });
+  const cycles = result.findings.filter((finding) => finding.code === "MANUAL_CYCLE");
+  assert.ok(cycles.length > 0);
+  assert.ok(cycles.every((finding) => finding.severity === "warning"));
+  assert.equal(result.valid, true);
+});
+
 test("warns about a Manual that no trigger or link can start", () => {
   const workspace = makeWorkspace();
   writeManual(workspace, "root", { content: validContent });

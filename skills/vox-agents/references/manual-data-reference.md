@@ -8,6 +8,8 @@
 
 Manual은 Agent가 소유한다. `agent.data.manuals`는 Manual UUID를 키로 하는 맵이고, 값에는 id 필드가 없다. 다른 Agent와 Manual을 공유하지 않으며, 같은 절차가 두 Agent에 필요하면 각 Agent에 따로 둔다.
 
+Manual은 Agent 버전과 함께 동결된다. 수정은 Agent의 current 초안에만 반영되고, 배포 중인 프로덕션 버전은 발행 시점의 Manual을 그대로 쓴다. 통화에 반영하려면 버전 저장과 promote가 필요하다. 쓰기는 최신 revision을 전제로 하며 다른 작업자와 겹치면 409로 거부되므로, 실패하면 다시 pull해 겹치는 변경을 검토한 뒤 재시도한다.
+
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | `name` | string (최대 128자) | 매뉴얼 이름. Agent 본문의 라우팅 지시가 이 이름으로 지칭한다. 공백만 있는 이름은 저장할 수 없다. |

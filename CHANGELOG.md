@@ -62,6 +62,7 @@
 - skill↔MCP 도구 conformance CI를 추가했다 (`scripts/check-skill-mcp-conformance.sh` + `scripts/vox-mcp-public-tools.json` 매니페스트, `.github/workflows/bundle-sync.yml`에 step 추가). 스킬이 공개 surface(`PUBLIC_TOOL_NAMES`)에 없는 vox 도구명을 호출하도록 안내하면 CI가 실패하고, 어떤 스킬도 참조하지 않는 공개 도구는 경고한다. `create_custom_tool` 같은 phantom 도구명 회귀를 자동 차단한다(이번 라운드에 실제로 잔존 phantom을 잡아냄).
 
 ### Changed
+- `vox-agents`에 Manual이 Agent 버전에 동결된다는 계약(push 뒤 version save → promote 필요)을 추가했다. `review-manual-tree.mjs`는 trigger 있는 진입 Manual끼리만 도는 순환을 Warning으로 낮추고 후속 Manual을 거치는 순환만 Critical로 남긴다. 플랫폼 검증이 통과시키는 진입 Manual 간 이동을 검사기가 막고 있었다.
 - `vox-web-app`의 "화면 보며 안내(Chrome MCP) 권장" 모드를 삭제하고 텍스트 안내 단일 워크플로로 바꿨다. Codex·Cursor·`npx skills add` 설치본에는 브라우저 제어 도구가 없어 권장 경로가 실행 불가였고, 사용자 브라우저를 대신 조작하지 않는다. "작업 전 reference 5개를 반드시 읽는다"도 "영역이 정해지면 하나만"으로 바꿨다.
 - 스킬 간 파일 참조(`vox-agents/references/...`를 읽어라) 9곳을 스킬 호출(handoff)로 바꿨다. 플러그인 설치 위치에 따라 다른 스킬의 상대 경로는 해석되지 않는다. 같은 이유로 `review-manual-tree.mjs` 경로를 레포 루트 기준에서 스킬 디렉터리 기준으로 바꾸고 `vox` CLI 설치 판별(`command -v vox`)을 앞에 뒀다.
 - `vox-flow` SKILL.md Core Operating Rules를 규칙 정본으로 선언하고 references 상단에 우선순위 각주를 달았다. 규칙 15/16을 병합하고 규칙 12와 legacy `flow_data` 경계를 각각 한 절로 모았다(19→18). `flow-guide.md`·`execution-node-markdown.md`에 목차를 추가했다. S5 eval 패치가 `node-examples.md`와 `flow-review.md` B16에 닿지 않았던 것이 중복 서술의 결과였다.
