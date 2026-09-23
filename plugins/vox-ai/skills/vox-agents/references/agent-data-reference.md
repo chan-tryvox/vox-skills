@@ -14,7 +14,7 @@ get_schema(namespace="agent-schema", schema_type="agent-data-update")
 ## Root 필수 필드
 
 schema endpoint 결과를 따른다. 현재 기본 payload 에서는 `prompt`, `stt`, `llm`, `voice`, `postCall`, `toolIds`를 핵심 root 로 다룬다.
-나머지(`builtInTools`, `speech`, `callSettings`, `security`, `knowledge`, `webhookSettings`, `presetDynamicVariables`)는 schema 결과에 맞춰 선택적으로 보낸다.
+나머지(`builtInTools`, `manuals`, `speech`, `callSettings`, `security`, `knowledge`, `webhookSettings`, `presetDynamicVariables`)는 schema 결과에 맞춰 선택적으로 보낸다.
 
 ## 필드별 핵심 규칙
 
@@ -50,11 +50,14 @@ schema endpoint 결과를 따른다. 현재 기본 payload 에서는 `prompt`, `
 - `type="enum"`이면 `enumOptions` 필수 — 없으면 런타임에 빈 선택지가 되어 추출 실패.
 - PostCall은 통화 내용을 구조화해 저장하는 기능이다. 예약·변경·취소·발송·결제 같은 외부 Side-effect를 실행하거나 성공시키지 않는다.
 
-### manualIds
+### manuals
 
-- single-prompt Agent에 직접 연결하는 Manual UUID 배열이다.
-- 특정 Manual 이후에만 사용하는 후속 Manual은 부모 Manual의 `linked_manual_ids`에 연결한다.
-- Manual이 연결된 Agent는 `manual-review.md` 기준으로 직접·linked Manual과 Manual 소유 Tool을 재귀 검토한다.
+- single-prompt Agent가 소유한 Manual 맵이다. 키는 Manual UUID이고, 값은 `name`·`trigger`·`content`·`built_in_tools`·`config`다. 맵 값 안의 필드는 snake_case다.
+- `manualIds`·`manual_ids`는 폐기됐다. create/update에 보내면 `manualIds is retired`로 거절된다. Manual을 따로 만들어 Agent에 붙이는 방식은 없고, Manual은 Agent 맵 안에만 있다.
+- update에서 `manuals`를 보내면 맵 전체가 교체된다. 생략하면 기존 맵이 유지된다. Manual 하나만 고칠 때도 `get_agent`로 현재 맵을 읽고 나머지 Manual을 그대로 포함한 전체 맵을 보낸다. 빈 `{}`를 보내면 모든 Manual이 삭제된다.
+- `trigger`가 채워진 Manual은 Agent가 직접 시작할 수 있는 진입 Manual이다. `trigger`가 빈 Manual은 다른 Manual content의 `@manual:<UUID>`로만 도달하는 후속 Manual이다.
+- flow Agent에는 Manual을 두지 않는다. 비어 있지 않은 맵은 배포 시 `MANUALS_UNSUPPORTED_AGENT_TYPE`으로 거절된다.
+- Manual이 있는 Agent는 `manual-review.md` 기준으로 진입·linked Manual과 Manual 소유 Tool을 재귀 검토한다.
 - Manual content·Trigger·`StartManual` 라우팅은 `manual-authoring.md`, 필드와 연결·참조 규칙은 `manual-data-reference.md`를 따른다.
 
 ### callSettings

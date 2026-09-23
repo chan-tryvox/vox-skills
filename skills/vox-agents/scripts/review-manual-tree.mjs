@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 const MANUAL_REF_RE = /@manual:([A-Za-z0-9._-]+)/g;
 const TOOL_REF_RE = /@tool:([A-Za-z0-9._-]+)/g;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const RETIRED_AGENT_KEYS = ["manualIds", "manual_ids", "manualRefs"];
 const SIDE_EFFECT_RE = /(완료됐습니다|완료되었습니다|처리가 완료|변경됐습니다|변경되었습니다|취소됐습니다|취소되었습니다|발송됐습니다|발송되었습니다|보내드리겠습니다|예약이 확정|접수해 드리겠습니다|접수하겠습니다|연락드리겠습니다|기사가 연락드립니다|방문합니다)/;
 const NEGATION_RE = /(말하지|보장하지|확정하지|완료로.*않|금지|경우에만|성공.*경우|근거가.*있을 때|아직.*않|아닙니다|없습니다)/;
 
@@ -14,19 +15,12 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-function extractRefs(content, regex) {
-  return [...String(content ?? "").matchAll(regex)].map((match) => match[1]);
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function normalizeRefList(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (typeof item === "string") return item;
-      if (item && typeof item === "object") return item.ref ?? item.name ?? item.id ?? item.manual_id;
-      return undefined;
-    })
-    .filter(Boolean);
+function extractRefs(content, regex) {
+  return [...String(content ?? "").matchAll(regex)].map((match) => match[1]);
 }
 
 function parseArgs(argv) {
@@ -48,59 +42,71 @@ function usage() {
   return [
     "Usage:",
     "  review-manual-tree.mjs --workspace <vox-project> --agent <local-name> [--json] [--strict]",
-    "  review-manual-tree.mjs --workspace <vox-project> --agent-file <path> [--json] [--strict]",
+    "  review-manual-tree.mjs --agent-file <agent.json with data.manuals> [--json] [--strict]",
   ].join("\n");
 }
 
-function buildIndex(workspace) {
+// Manuals belong to one agent. A remote agent JSON (for example a get_agent
+// result) carries them inline as `data.manuals` keyed by manual UUID; a local
+// Vox CLI project keeps one file per manual under agents/<agent>/manuals/ and
+// the UUIDs in .vox/project.json bindings[<agent>].manuals.
+function buildIndex({ workspace, agentName, agentFile, agentData, inline }) {
   const statePath = path.join(workspace, ".vox", "project.json");
   const state = fs.existsSync(statePath) ? readJson(statePath) : {};
-  const manualBindings = state.manual_bindings ?? {};
   const toolBindings = state.tool_bindings ?? {};
-  const idToManualLocal = new Map();
-  const idToToolLocal = new Map();
-
-  for (const [localName, binding] of Object.entries(manualBindings)) {
-    if (binding?.manual_id) idToManualLocal.set(binding.manual_id, localName);
-  }
-  for (const [localName, binding] of Object.entries(toolBindings)) {
-    if (binding?.tool_id) idToToolLocal.set(binding.tool_id, localName);
-  }
-
-  const manualsDir = path.join(workspace, "manuals");
+  const toolIds = new Set(Object.values(toolBindings).map((binding) => binding?.tool_id?.toLowerCase()).filter(Boolean));
   const manuals = new Map();
-  if (fs.existsSync(manualsDir)) {
-    for (const entry of fs.readdirSync(manualsDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const filePath = path.join(manualsDir, entry.name, "manual.json");
-      if (!fs.existsSync(filePath)) continue;
-      const source = readJson(filePath);
-      manuals.set(entry.name, { localName: entry.name, filePath, manual: source.manual ?? source });
+  const idToLocal = new Map();
+
+  if (inline) {
+    for (const [manualId, value] of Object.entries(agentData.manuals)) {
+      const key = manualId.toLowerCase();
+      manuals.set(key, { localName: key, filePath: `${agentFile}#/data/manuals/${manualId}`, manual: value ?? {} });
+      idToLocal.set(key, key);
+    }
+  } else {
+    const bindings = state.bindings?.[agentName]?.manuals ?? {};
+    for (const [localName, binding] of Object.entries(bindings)) {
+      if (binding?.manual_id) idToLocal.set(binding.manual_id.toLowerCase(), localName);
+    }
+    const manualsDir = path.join(workspace, "agents", agentName, "manuals");
+    if (fs.existsSync(manualsDir)) {
+      for (const entry of fs.readdirSync(manualsDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const filePath = path.join(manualsDir, entry.name, "manual.json");
+        if (!fs.existsSync(filePath)) continue;
+        const source = readJson(filePath);
+        manuals.set(entry.name, { localName: entry.name, filePath, manual: source.manual ?? source });
+      }
     }
   }
 
-  return { state, manualBindings, toolBindings, idToManualLocal, idToToolLocal, manuals };
+  return { manuals, idToLocal, toolBindings, toolIds };
 }
 
 function resolveManualRef(ref, index) {
   if (index.manuals.has(ref)) return ref;
-  if (index.idToManualLocal.has(ref)) return index.idToManualLocal.get(ref);
-  const prefixed = `m-${ref}`;
-  if (index.manuals.has(prefixed)) return prefixed;
+  const byId = index.idToLocal.get(ref.toLowerCase());
+  if (byId && index.manuals.has(byId)) return byId;
   return undefined;
 }
 
+// "ok" when the reference resolves locally, "unverified" for a custom tool UUID
+// that only the API can check, "unresolved" when it cannot be valid.
 function resolveToolRef(ref, manual, index) {
   const builtIns = new Set((manual.built_in_tools ?? manual.builtInTools ?? []).map((tool) => tool?.name).filter(Boolean));
-  if (builtIns.has(ref)) return true;
-  if (index.toolBindings[ref]) return true;
-  if (index.idToToolLocal.has(ref)) return true;
-  if (UUID_RE.test(ref) && index.idToToolLocal.has(ref)) return true;
-  return false;
+  if (builtIns.has(ref)) return "ok";
+  if (index.toolBindings[ref]) return "ok";
+  if (UUID_RE.test(ref)) return index.toolIds.has(ref.toLowerCase()) ? "ok" : "unverified";
+  return "unresolved";
 }
 
 function addFinding(findings, severity, code, manual, filePath, message, evidence) {
   findings.push({ severity, code, manual, path: filePath, message, ...(evidence ? { evidence } : {}) });
+}
+
+function isEntry(manual) {
+  return String(manual.trigger ?? "").trim().length > 0;
 }
 
 function reviewOneManual(node, index, findings) {
@@ -109,6 +115,9 @@ function reviewOneManual(node, index, findings) {
   const trigger = String(manual.trigger ?? "");
   const sound = manual.config?.tool_call_sound ?? manual.config?.toolCallSound ?? null;
 
+  if (!String(manual.name ?? "").trim()) {
+    addFinding(findings, "critical", "MANUAL_NAME_REQUIRED", localName, filePath, "A reachable Manual needs a name.");
+  }
   if (!/^## 규칙\s*$/m.test(content)) {
     addFinding(findings, "warning", "MANUAL_RULES_SECTION_MISSING", localName, filePath, "`## 규칙` section is missing.");
   }
@@ -134,19 +143,26 @@ function reviewOneManual(node, index, findings) {
     addFinding(findings, "warning", "RAW_TOOL_STATE_TOKEN", localName, filePath, "Manual repeats raw Tool result fields or enum tokens; prefer natural-language branching.");
   }
 
-  const triggerChecks = [
-    [/(물어봐야|확인해야|안내해야|판정해야|처리하기 전에|해야 할 때)/, "TRIGGER_AGENT_ENTRY_MISSING", "Trigger may be missing the Agent-needs-to-act entry."],
-    [/고객이[^.\n]*(말|불러|요청|물|원|시작)/, "TRIGGER_CUSTOMER_ENTRY_MISSING", "Trigger may be missing the customer-speaks-first entry."],
-    [/(확인|정정|수정|바꾸|재확인)/, "TRIGGER_CORRECTION_ENTRY_MISSING", "Trigger may be missing the confirm/correct entry."],
-  ];
-  for (const [regex, code, message] of triggerChecks) {
-    if (!regex.test(trigger)) addFinding(findings, "warning", code, localName, filePath, message, trigger);
+  // A blank trigger makes a follow-up Manual that only a parent's @manual: link
+  // can start, so the entry-point checks apply to entry Manuals only.
+  if (isEntry(manual)) {
+    const triggerChecks = [
+      [/(물어봐야|확인해야|안내해야|판정해야|처리하기 전에|해야 할 때)/, "TRIGGER_AGENT_ENTRY_MISSING", "Trigger may be missing the Agent-needs-to-act entry."],
+      [/고객이[^.\n]*(말|불러|요청|물|원|시작)/, "TRIGGER_CUSTOMER_ENTRY_MISSING", "Trigger may be missing the customer-speaks-first entry."],
+      [/(확인|정정|수정|바꾸|재확인)/, "TRIGGER_CORRECTION_ENTRY_MISSING", "Trigger may be missing the confirm/correct entry."],
+    ];
+    for (const [regex, code, message] of triggerChecks) {
+      if (!regex.test(trigger)) addFinding(findings, "warning", code, localName, filePath, message, trigger);
+    }
   }
 
   const toolRefs = extractRefs(content, TOOL_REF_RE);
-  for (const toolRef of toolRefs) {
-    if (!resolveToolRef(toolRef, manual, index)) {
-      addFinding(findings, "critical", "MANUAL_TOOL_UNRESOLVED", localName, filePath, `@tool:${toolRef} does not resolve to a built-in Tool owned by this Manual or a pulled custom Tool binding.`);
+  for (const toolRef of new Set(toolRefs)) {
+    const status = resolveToolRef(toolRef, manual, index);
+    if (status === "unresolved") {
+      addFinding(findings, "critical", "MANUAL_TOOL_UNRESOLVED", localName, filePath, `@tool:${toolRef} is neither a built-in Tool in this Manual's built_in_tools nor a bound custom Tool.`);
+    } else if (status === "unverified") {
+      addFinding(findings, "warning", "MANUAL_CUSTOM_TOOL_UNVERIFIED", localName, filePath, `@tool:${toolRef} is a custom Tool UUID that is not bound locally; the API checks it at publish.`);
     }
   }
 
@@ -162,15 +178,11 @@ function reviewOneManual(node, index, findings) {
   return {
     name: manual.name ?? localName,
     local_name: localName,
+    entry: isEntry(manual),
     trigger,
     sound,
     content_length: content.length,
-    manual_refs: [...new Set([
-      ...extractRefs(content, MANUAL_REF_RE),
-      ...normalizeRefList(manual.linkedManualRefs),
-      ...normalizeRefList(manual.linked_manual_ids),
-      ...normalizeRefList(manual.linkedManualIds),
-    ])],
+    manual_refs: [...new Set(extractRefs(content, MANUAL_REF_RE))],
     tool_refs: [...new Set(toolRefs)],
   };
 }
@@ -185,24 +197,24 @@ export function reviewManualTree({ workspace, agent, agentFile }) {
 
   const agentSource = readJson(resolvedAgentFile);
   const agentData = (agentSource.agent ?? agentSource).data ?? {};
-  const index = buildIndex(resolvedWorkspace);
-  const directRefs = [...new Set([
-    ...normalizeRefList(agentData.manualRefs),
-    ...normalizeRefList(agentData.manualIds),
-  ])];
+  const agentName = agent ?? path.basename(path.dirname(resolvedAgentFile));
+  const inline = Boolean(agentFile) && isPlainObject(agentData.manuals);
+  const index = buildIndex({ workspace: resolvedWorkspace, agentName, agentFile: resolvedAgentFile, agentData, inline });
   const findings = [];
+
+  const retiredKeys = RETIRED_AGENT_KEYS.filter((key) => key in agentData);
+  if (!inline && "manuals" in agentData) retiredKeys.push("manuals");
+  if (retiredKeys.length > 0) {
+    addFinding(findings, "critical", "MANUAL_IDS_RETIRED", "agent", resolvedAgentFile, `Agent data still carries retired manual keys: ${retiredKeys.join(", ")}. Manuals live in the agent's own manual map.`);
+  }
+
   const nodes = [];
   const visited = new Set();
   const active = new Set();
   let maxDepth = 0;
 
-  function visit(ref, depth, from) {
+  function visit(localName, depth, from) {
     maxDepth = Math.max(maxDepth, depth);
-    const localName = resolveManualRef(ref, index);
-    if (!localName) {
-      addFinding(findings, "critical", "LINKED_MANUAL_NOT_PULLED", from ?? "agent", resolvedAgentFile, `Manual reference '${ref}' is not available in the local project.`);
-      return;
-    }
     if (active.has(localName)) {
       addFinding(findings, "critical", "MANUAL_CYCLE", localName, index.manuals.get(localName)?.filePath, `Manual cycle detected at '${localName}'.`);
       return;
@@ -210,37 +222,46 @@ export function reviewManualTree({ workspace, agent, agentFile }) {
     if (visited.has(localName)) return;
 
     const node = index.manuals.get(localName);
-    if (!node) {
-      addFinding(findings, "critical", "MANUAL_FILE_MISSING", localName, resolvedAgentFile, `Manual file is missing for '${localName}'.`);
-      return;
-    }
-
     active.add(localName);
     const reviewed = reviewOneManual(node, index, findings);
-    nodes.push({ ...reviewed, depth, from: from ?? "agent" });
+    nodes.push({ ...reviewed, depth, from });
     if (depth > 2) {
       addFinding(findings, "warning", "MANUAL_LINK_DEPTH", localName, node.filePath, `Linked Manual depth is ${depth}; consider Flow when the chain exceeds two levels.`);
     }
-    for (const childRef of reviewed.manual_refs) visit(childRef, depth + 1, localName);
+    for (const childRef of reviewed.manual_refs) {
+      const child = resolveManualRef(childRef, index);
+      if (!child) {
+        addFinding(findings, "critical", "MANUAL_NOT_FOUND", localName, node.filePath, `@manual:${childRef} is not in this agent's manual map.`);
+        continue;
+      }
+      visit(child, depth + 1, localName);
+    }
     active.delete(localName);
     visited.add(localName);
   }
 
-  for (const ref of directRefs) visit(ref, 0, "agent");
+  const entryNames = [...index.manuals.keys()].filter((name) => isEntry(index.manuals.get(name).manual)).sort();
+  for (const name of entryNames) visit(name, 0, "agent");
+
+  const unreachable = [...index.manuals.keys()].filter((name) => !visited.has(name)).sort();
+  for (const name of unreachable) {
+    addFinding(findings, "warning", "MANUAL_UNREACHABLE", name, index.manuals.get(name).filePath, "Manual has no trigger and no Manual links to it, so it can never start.");
+  }
 
   const counts = { critical: 0, warning: 0, info: 0 };
   for (const finding of findings) counts[finding.severity] += 1;
-  const directLocalNames = new Set(directRefs.map((ref) => resolveManualRef(ref, index)).filter(Boolean));
 
   return {
-    schema: "vox.ai.manual-tree-review.v1",
+    schema: "vox.ai.manual-tree-review.v2",
     valid: counts.critical === 0,
     workspace: resolvedWorkspace,
     agent_file: resolvedAgentFile,
+    source: inline ? "agent_data_manuals" : "local_project",
     summary: {
-      direct_manual_count: directLocalNames.size,
-      linked_manual_count: Math.max(0, visited.size - directLocalNames.size),
-      total_manual_count: visited.size,
+      entry_manual_count: entryNames.length,
+      linked_manual_count: Math.max(0, visited.size - entryNames.length),
+      total_manual_count: index.manuals.size,
+      unreachable_manual_count: unreachable.length,
       max_depth: maxDepth,
       ...counts,
     },
@@ -253,7 +274,7 @@ function renderHuman(result) {
   const { summary } = result;
   const lines = [
     `Manual tree: ${result.valid ? "PASS" : "FAIL"}`,
-    `direct=${summary.direct_manual_count} linked=${summary.linked_manual_count} total=${summary.total_manual_count} max_depth=${summary.max_depth}`,
+    `entry=${summary.entry_manual_count} linked=${summary.linked_manual_count} total=${summary.total_manual_count} unreachable=${summary.unreachable_manual_count} max_depth=${summary.max_depth}`,
     `critical=${summary.critical} warning=${summary.warning} info=${summary.info}`,
   ];
   for (const finding of result.findings) {

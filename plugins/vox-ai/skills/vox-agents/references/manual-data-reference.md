@@ -1,20 +1,24 @@
 # 매뉴얼 데이터 레퍼런스 (manual-data-reference)
 
-매뉴얼 엔티티의 필드와 연결·참조 규칙을 정리한다. 작성 doctrine은 `manual-authoring.md` 참조.
+매뉴얼 값의 필드와 연결·참조 규칙을 정리한다. 작성 doctrine은 `manual-authoring.md` 참조.
 
-표기 규칙: agent.data(MCP `create_agent`/`update_agent`)는 camelCase(`builtInTools`, `toolIds`, `manualIds`)이고, Manual 엔티티(CLI·Agent-as-Code 파일)는 snake_case(`built_in_tools`, `tool_ids`, `linked_manual_ids`)다. 표면이 다르기 때문이며, 한쪽 표기를 다른 쪽에 섞어 쓰지 않는다.
+표기 규칙: agent.data(MCP `create_agent`/`update_agent`)는 camelCase(`builtInTools`, `toolIds`, `manuals`)이고, Manual 값(`agent.data.manuals`의 각 값과 CLI `manual.json`)은 snake_case(`built_in_tools`, `tool_call_sound`)다. 표면이 다르기 때문이며, 한쪽 표기를 다른 쪽에 섞어 쓰지 않는다.
 
 ## 1. 엔티티 필드
 
+Manual은 Agent가 소유한다. `agent.data.manuals`는 Manual UUID를 키로 하는 맵이고, 값에는 id 필드가 없다. 다른 Agent와 Manual을 공유하지 않으며, 같은 절차가 두 Agent에 필요하면 각 Agent에 따로 둔다.
+
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `name` | string | 매뉴얼 이름. Agent 본문의 라우팅 지시가 이 이름으로 지칭한다. |
-| `trigger` | string | 이 Manual을 시작해야 하는 조건을 설명하는 한 문장. |
-| `content` | string (markdown) | Manual이 시작된 뒤 따를 규칙과 진행 절차. |
-| `tool_ids` | UUID[] | 이 매뉴얼에 귀속되는 커스텀 도구. |
-| `built_in_tools` | object[] | 이 매뉴얼에 귀속되는 빌트인 도구 설정(에이전트 builtInTools와 같은 shape: toolType/name/description/responseMode/speakDuringExecution 등). |
-| `linked_manual_ids` | UUID[] | 이 Manual 이후에 사용하는 후속 Manual UUID 목록. |
+| `name` | string (최대 128자) | 매뉴얼 이름. Agent 본문의 라우팅 지시가 이 이름으로 지칭한다. 공백만 있는 이름은 저장할 수 없다. |
+| `trigger` | string | 이 Manual을 시작해야 하는 조건을 설명하는 한 문장. 비워 두면 다른 Manual의 `@manual:` 참조로만 시작되는 후속 Manual이 된다. |
+| `content` | string (markdown, 8096자·64KiB 이하) | Manual이 시작된 뒤 따를 규칙과 진행 절차. 도구와 후속 Manual은 여기서 `@tool:`·`@manual:`로 참조한다. |
+| `built_in_tools` | object[] | 이 매뉴얼이 소유하는 빌트인 도구 설정(에이전트 builtInTools와 같은 shape: toolType/name/description/responseMode/speakDuringExecution 등). `name`은 함수 식별자 형식이고 Manual 안에서 중복될 수 없다. |
 | `config.tool_call_sound` | string | Manual 시작 시 재생되는 대기음 프리셋. 별도 요구가 없으면 `typing`을 사용하고, 무음이 명시적으로 필요한 경우에만 `none`을 사용한다. |
+
+커스텀 도구 목록 필드와 후속 Manual 목록 필드는 없다. 둘 다 content의 참조로 결정된다.
+
+로컬 Agent-as-Code(Vox CLI)에서는 Manual 하나가 `agents/<agent>/manuals/<local-name>/manual.json` 파일 하나이고, UUID는 `.vox/project.json`의 `bindings[<agent>].manuals[<local-name>].manual_id`에만 있다. `agent.json`에는 `manuals`·`manualIds`·`manualRefs`를 넣지 않는다.
 
 **템플릿 매뉴얼**: 플랫폼이 검증된 템플릿(이메일 수집·주소 검증·영업시간 확인)을 제공한다. 같은 업무는 템플릿에서 복사해 시작한다.
 
@@ -22,10 +26,11 @@
 
 ## 2. 연결 및 참조 규칙
 
-- Agent가 직접 시작할 수 있는 Manual은 Agent에 연결한다.
-- 특정 Manual 이후에만 사용하는 후속 Manual은 `linked_manual_ids`에 연결한다.
-- Manual 전용 도구는 해당 Manual에 연결하고 content에서 `@tool:<빌트인 name>` 또는 `@tool:<커스텀 도구 UUID>`로 참조한다.
-- 후속 Manual은 content에서 `@manual:<UUID>`로 참조한다.
+- Agent가 직접 시작할 수 있는 Manual은 `trigger`를 채운 진입 Manual로 둔다.
+- 특정 Manual 이후에만 사용하는 후속 Manual은 `trigger`를 비우고 부모 content에서 `@manual:<UUID>`로 참조한다. 대상은 같은 Agent의 `manuals` 맵에 있어야 하며, 없으면 `MANUAL_NOT_FOUND`로 배포가 막힌다.
+- Manual 전용 빌트인 도구는 해당 Manual의 `built_in_tools`에 두고 content에서 `@tool:<빌트인 name>`으로 참조한다. `built_in_tools`에 없는 이름을 참조하면 `BUILT_IN_TOOL_NOT_DEFINED`다.
+- 조직 커스텀 도구는 content에서 `@tool:<커스텀 도구 UUID>`로 참조한다. 배포 시 같은 조직에 그 도구가 없으면 `MANUAL_TOOL_UNAVAILABLE`이다.
+- CLI 로컬 파일에서는 `@manual:<local-name>`·`@tool:<local-tool-name>`으로 쓰고, `vox manual push`가 UUID로 바꿔 보낸다.
 - `M1`, `M2` 같은 임시 식별자는 직접 작성하지 않는다. Agent 본문에서는 Manual 이름을 사용하고, Manual 간 연결에는 UUID를 사용한다.
 
 ## 3. 예시 구조 (annotated skeleton)
@@ -39,10 +44,9 @@ trigger: >
   또는 등록된 배송 주소를 확인하거나 바꾸고 싶다고 할 때
   # → 진입점 3종: 업무 도달 / 고객 선발화 / 기존 값 확인·정정
 built_in_tools: []               # → 절차 전용 도구는 여기 귀속 + content에서 @tool: 참조
-linked_manual_ids:
-  - <주소 검증 매뉴얼 UUID>       # → content의 @manual: 참조 대상은 반드시 여기에도 등록
 config:
   tool_call_sound: typing
+# → content의 @manual:<주소 검증 매뉴얼 UUID> 대상은 같은 Agent 맵에 두고 trigger를 비운다
 ```
 
 ```markdown
@@ -70,7 +74,7 @@ config:
 
 ### 주소 재확인
 1. 새 주소가 필요하면 @manual:<주소 검증 매뉴얼 UUID> 절차로 주소를 확정한다.
-   → linked 체인 진입. 부모 content의 이 지시가 곧 진입 조건
+   → linked 체인 진입. 부모 content의 이 지시가 곧 진입 조건이다(후속 Manual의 trigger는 비움)
 2. 주소가 확정되면 '완료'로 이동한다.
 
 ### 수집할 수 없는 경우

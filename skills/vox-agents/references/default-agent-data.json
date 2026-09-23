@@ -70,6 +70,6 @@
 
   "presetDynamicVariables": {},
   "toolIds": [],
-  "manualIds": [],
+  "manuals": {},
   "builtInTools": []
 }

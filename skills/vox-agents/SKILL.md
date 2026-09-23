@@ -113,17 +113,16 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 - `get_schema(namespace='agent-schema', schema_type='agent-data-update')` — `update_agent.data` shape 확인
 - `get_schema(namespace='flow-schema', schema_type='flow-data')` — flow agent graph shape 확인 (필요 시 `vox-flow`로 handoff)
 
-현재 public vox MCP surface에는 Manual CRUD가 없다. 존재하지 않는 Manual 생성·조회 MCP Tool을 가정하지 않는다. Manual 원격 작업은 Vox CLI가 설치된 환경에서 아래 명령을 사용하고, CLI가 없으면 Manual 초안·검토 결과를 산출하되 원격 적용이 미검증임을 명시한다.
+공개 vox MCP surface에는 Manual 단건 CRUD Tool이 없다. Manual은 `agent.data.manuals` 맵(키=Manual UUID)으로 Agent에 속하므로 `get_agent`로 읽을 수 있고, 쓰기는 맵 전체 교체다(`agent-data-reference.md`). Manual 원격 작업은 Vox CLI가 설치된 환경에서 아래 명령을 사용하고, CLI가 없으면 Manual 초안·검토 결과를 산출하되 원격 적용이 미검증임을 명시한다.
 
 ### Vox CLI (Manual, when available)
 
-설치 여부는 먼저 `command -v vox`(또는 `vox --version`)로 확인한다. 없으면 아래 명령을 시도하지 말고 초안·검토 결과만 낸다.
+설치 여부는 먼저 `command -v vox`(또는 `vox --version`)로 확인한다. 없으면 아래 명령을 시도하지 말고 초안·검토 결과만 낸다. `vox manual list --help`에 `--agent`가 없으면 폐기된 조직 단위 Manual을 쓰는 구버전 CLI이므로 업데이트한 뒤 사용한다.
 
-- `vox manual list --json` / `vox manual pull <id> --manual <local-name> --json`
-- `vox manual init <local-name> --tool-call-sound typing --json`
-- `vox manual validate <local-name> --json`
-- `vox manual push <local-name> --dry-run --json` → 승인된 적용 작업에서만 실제 push
-- `vox agent attach manual <agent> <manual> --json`
+- `vox manual list --agent <agent> --json` / `vox manual pull --agent <agent> --json`
+- `vox manual init <agent> <local-name> --name "<이름>" --trigger "<trigger>" --tool-call-sound typing --json`
+- `vox manual validate <agent> <local-name> --json`
+- `vox manual push --agent <agent> --dry-run --json` → 승인된 적용 작업에서만 실제 push. push는 그 Agent의 Manual 맵 전체를 한 번에 교체한다.
 - `node <이 스킬 디렉터리>/scripts/review-manual-tree.mjs --workspace <path> --agent <local-name> --json [--strict]` — 이 SKILL.md와 같은 디렉터리의 `scripts/`에 있다(플러그인 설치본에서는 `${CLAUDE_PLUGIN_ROOT}/skills/vox-agents/scripts/...`). exit 0 통과, 1 Critical, `--strict`에서 Warning이면 2.
 
 ### Docs (vox-docs search)
