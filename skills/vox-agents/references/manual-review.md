@@ -31,7 +31,7 @@ Manual이 있는 Agent는 본문 prompt와 진입 Manual만 따로 검토하지 
 
 - `@manual:` 대상이 같은 Agent 맵에 없거나 로컬에서 풀리지 않아 linked 절차를 검증할 수 없음
 - Agent data에 폐기된 `manualIds`·`manualRefs`가 남아 있음
-- 순환 참조가 존재함
+- `trigger`가 빈 후속 Manual을 거치는 순환 참조(빠져나갈 진입점이 없음)
 - content가 `@tool:`을 참조하지만 해당 Manual이 그 Tool을 소유하지 않음
 - 외부 상태 변경을 완료했다고 말하지만 해당 Side-effect를 수행한 쓰기 Tool 성공 근거가 없음
 - `### 완료`가 없어 Manual 종료·복귀 지점이 불명확함
@@ -43,6 +43,7 @@ Manual이 있는 Agent는 본문 prompt와 진입 Manual만 따로 검토하지 
 - `### 완료`에 원래 요청 복귀 또는 Agent 마무리 계약이 없음
 - `key=value` 형태의 코드형 상태 할당을 사용함
 - raw Tool enum이나 결과 필드명을 상태 이름·고객 발화에 노출함
+- 진입 Manual끼리만 서로 `@manual:`로 넘어가는 순환(절차 간 이동은 허용되지만 의도인지 확인)
 - Trigger가 업무 도달 / 고객 선발화 / 기존 값 확인·정정 진입점을 충분히 커버하지 않음
 - Trigger 시작 발화 예시를 전체 Trigger에 교차 대입한 근거가 없음
 - 수집 불가·거절·정정 경로가 없음
@@ -87,5 +88,6 @@ node <vox-agents 스킬 디렉터리>/scripts/review-manual-tree.mjs \
 - Critical 0
 - Warning은 의도적 예외만 남고 이유가 기록됨
 - 진입·linked Manual 및 Tool 전체가 remote read-back과 일치함
+- 수정한 Manual이 통화에 반영돼야 하면 Agent 버전 저장과 promote까지 끝났음(Manual은 발행 시점의 버전에 동결되고, current 수정만으로는 프로덕션 통화가 바뀌지 않음)
 - 대표 Trigger별 transcript에서 Manual 진입 전 선응답이 없음
 - 쓰기 Tool이 없는 업무가 완료·변경·취소·발송을 약속하지 않음

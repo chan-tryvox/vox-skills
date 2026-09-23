@@ -123,6 +123,7 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 - `vox manual init <agent> <local-name> --name "<이름>" --trigger "<trigger>" --tool-call-sound typing --json`
 - `vox manual validate <agent> <local-name> --json`
 - `vox manual push --agent <agent> --dry-run --json` → 승인된 적용 작업에서만 실제 push. push는 그 Agent의 Manual 맵 전체를 한 번에 교체한다.
+- `vox agent version save --agent <agent> --json` → `vox agent promote --agent <agent> <version> --yes --json` — Manual은 Agent 버전에 동결되므로 push만으로는 프로덕션 통화가 바뀌지 않는다. 통화에 반영해야 하면 이 두 단계까지 안내한다.
 - `node <이 스킬 디렉터리>/scripts/review-manual-tree.mjs --workspace <path> --agent <local-name> --json [--strict]` — 이 SKILL.md와 같은 디렉터리의 `scripts/`에 있다(플러그인 설치본에서는 `${CLAUDE_PLUGIN_ROOT}/skills/vox-agents/scripts/...`). exit 0 통과, 1 Critical, `--strict`에서 Warning이면 2.
 
 ### Docs (vox-docs search)
