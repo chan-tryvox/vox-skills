@@ -136,7 +136,7 @@ generated conversation 의 `data.prompt` 에는 완료 시 아래 의미를 명�
 - `data.prompt_type` 은 반드시 쓴다. `static_sentence` 만 두고 `prompt_type:"static"` 을 빼면 런타임은 dynamic 기본값으로 해석해 고정 문구를 무시할 수 있다.
 - 일반 out-edge 는 반드시 의미 있는 `condition` 을 가진다. `null`, 빈 문자열, `"None"` 은 자동 진행 조건이 아니며 LLM이 선택할 의미가 없어 dead route 가 된다.
 - static 노드가 안내 멘트 후 endCall 또는 다음 노드로 바로 넘어가야 해도 edge 에 `skip_user_response:true` 를 습관적으로 붙이지 않는다. 정말 사용자 응답을 기다리지 않는 edge 인지 schema 와 런타임 의도를 확인한다.
-- static one-shot 안내 후 정상 진행 edge 를 fallback 으로 만들지 않는다. "안내 멘트 발화 후 다음 단계로 진행"처럼 명시적인 condition 을 두고, fallback 은 실패/else/default 복구 path 로 남긴다.
+- static one-shot 안내 후 정상 진행 edge 를 fallback 으로 만들지 않는다. "안내 멘트 발화 후 다음 단계로 진행"처럼 명시적인 condition 을 두고, fallback 은 begin 의 시작 edge 와 실패/else/default 복구 path 에만 쓴다.
 - 단, one-shot 안내 후 바로 종료만 하는 static node 는 반복 위험이 있으므로 endCall 종료 멘트로 흡수하는 편을 우선한다.
 - 최종 `flow` JSON 에는 `[[...]]` 작성용 placeholder 를 남기지 않는다. `[[...]]` 는 작성 중 빈칸이고, `{{...}}` 만 런타임 변수다.
 

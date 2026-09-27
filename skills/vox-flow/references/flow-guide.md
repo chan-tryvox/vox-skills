@@ -106,7 +106,7 @@ FlowEdge {
 - legacy edge field 를 보내지 않는다: `sourceHandle`, `targetHandle`, `type:"custom"`, `animated`, `selected`.
 - `skip_user_response` 는 이 edge 에서 사용자 응답을 기다리지 않고 다음 node 로 진행해야 할 때만 쓴다. static conversation → endCall, 실패 fallback edge 에 습관적으로 붙이지 않는다.
 - `begin` 에서 첫 실행 node 로 나가는 edge 에는 `skip_user_response:true` 를 붙이지 않는다. 시작 edge 는 flow wakeup 자체이며 사용자 응답 skip 의미를 덧씌우지 않는다.
-- extraction 완료, static one-shot 안내 후 다음 단계, API 성공 후 일반 진행처럼 정상 진행이 확정된 edge 를 fallback 으로 표현하지 않는다. schema 가 허용하는 명시 condition 으로 진행 의미를 적고, fallback 은 실패/else/default 복구 path 에 남긴다.
+- extraction 완료, static one-shot 안내 후 다음 단계, API 성공 후 일반 진행처럼 정상 진행이 확정된 edge 를 fallback 으로 표현하지 않는다. schema 가 허용하는 명시 condition 으로 진행 의미를 적고, fallback 은 begin 의 시작 edge 와 실패/else/default 복구 path 에만 쓴다.
 - begin 으로 들어가는 edge, endCall 에서 나가는 edge, note 로 들어가거나 note 에서 나가는 edge 는 만들지 않는다.
 - condition node 에서 나가는 edge 는 `logic` 또는 `fallback` condition 만 사용한다. 고객 발화 판단은 conversation node 의 `ai` condition edge 로 보낸다.
 

@@ -111,7 +111,7 @@
 5. public `flow` 의 node `data` 에 legacy routing key 를 넣지 않는다: `transitions`, `logicalTransitions`, `globalNodeSettings`. edge 에도 `sourceHandle`, `targetHandle`, `type:"custom"` 을 넣지 않는다.
 6. 기존 flow 수정이면 `function` / legacy `knowledge` node 를 그대로 public `flow` write 에 포함하지 않는다. 지원되는 node type 으로 마이그레이션하거나 legacy `flow_data` 경로를 쓴다.
 7. `skip_user_response:true` 는 사용자 발화를 기다리지 않는 것이 명확한 edge 에만 쓴다. `begin` outgoing edge, static conversation → endCall/next edge, fallback edge 에는 습관적으로 붙이지 않는다.
-8. extraction 완료나 static one-shot 안내 후 정상 진행 edge 를 fallback 으로 만들지 않는다. fallback 은 실패/else/default 복구 path 로 남기고, 정상 진행은 schema 가 허용하는 명시 condition 으로 표현한다.
+8. extraction 완료나 static one-shot 안내 후 정상 진행 edge 를 fallback 으로 만들지 않는다. fallback 은 begin 의 시작 edge 와 실패/else/default 복구 path 에만 쓰고, 정상 진행은 schema 가 허용하는 명시 condition 으로 표현한다.
 9. 업무 성공 뒤 SMS 실패 fallback 이 있으면, fallback target 이 generic failure 가 아니라 "업무는 완료, 문자만 실패" 종료 멘트인지 확인한다.
 10. flow graph 만 생성/검증하면 agent 최상위 `data` 는 생략한다. agent-level 설정을 실제로 바꿀 때만 schema 를 확인하고 필요한 subtree 만 보낸다.
 11. `validate_flow(flow=..., level="all")` 로 dry-run. `errors === []` 일 때만 다음 단계로 간다. `advisories` 는 사용자에게 한 줄로 전달한다.
