@@ -106,7 +106,7 @@ FlowEdge {
 - legacy edge field 를 보내지 않는다: `sourceHandle`, `targetHandle`, `type:"custom"`, `animated`, `selected`.
 - `skip_user_response` 는 이 edge 에서 사용자 응답을 기다리지 않고 다음 node 로 진행해야 할 때만 쓴다. static conversation → endCall, 실패 fallback edge 에 습관적으로 붙이지 않는다.
 - `begin` 에서 첫 실행 node 로 나가는 edge 에는 `skip_user_response:true` 를 붙이지 않는다. 시작 edge 는 flow wakeup 자체이며 사용자 응답 skip 의미를 덧씌우지 않는다.
-- extraction 완료, static one-shot 안내 후 다음 단계, API 성공 후 일반 진행처럼 정상 진행이 확정된 edge 를 fallback 으로 표현하지 않는다. schema 가 허용하는 명시 condition 으로 진행 의미를 적고, fallback 은 실패/else/default 복구 path 에 남긴다.
+- extraction 완료, static one-shot 안내 후 다음 단계, API 성공 후 일반 진행처럼 정상 진행이 확정된 edge 를 fallback 으로 표현하지 않는다. schema 가 허용하는 명시 condition 으로 진행 의미를 적고, fallback 은 begin 의 시작 edge 와 실패/else/default 복구 path 에만 쓴다.
 - begin 으로 들어가는 edge, endCall 에서 나가는 edge, note 로 들어가거나 note 에서 나가는 edge 는 만들지 않는다.
 - condition node 에서 나가는 edge 는 `logic` 또는 `fallback` condition 만 사용한다. 고객 발화 판단은 conversation node 의 `ai` condition edge 로 보낸다.
 
@@ -241,7 +241,7 @@ flow 에서 변수는 노드 간 데이터를 전달하는 핵심 메커니즘�
 - conversation node: 예상 외 응답 path 는 보통 fallback 이 아니라 ai condition 으로 명시한다. 예: "고객이 거절했거나 통화를 끊으려는 경우".
 - api / tool / sendSms / transferCall / transferAgent node: 성공/일반 path 는 ai condition 으로 명시하고, 실패 path 는 fallback edge 로 명시한다. API 응답 변수 비교는 다음 condition node 에서 logic edge 로 처리한다.
 - extraction node / static one-shot conversation node: 정상 진행 edge 를 fallback 으로 만들지 않는다. "추출 완료 후 다음 단계로 진행", "안내 멘트 발화 후 다음 단계로 진행"처럼 명시 condition 을 둔다.
-- begin node: 첫 실행 node 로 fallback edge 하나를 둘 수 있지만 `skip_user_response:true` 는 붙이지 않는다.
+- begin node: 첫 실행 node 로 가는 fallback edge 하나를 둔다. begin edge 에는 fallback 외 condition 을 쓸 수 없고(엔진이 거절), `skip_user_response:true` 도 붙이지 않는다.
 - endCall node 와 note node 에서 나가는 edge 는 두지 않는다. note node 는 editor-only annotation 이므로 실행 흐름에 연결하지 않는다.
 
 ### 4. Extraction 전에 Conversation

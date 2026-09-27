@@ -49,7 +49,7 @@ flow agent 설계물(flowchart + 노드 상세 설계)을 체크리스트 기반
 |----|--------|------|----------|
 | B1 | CRITICAL | 포맷 | `## name` / `## content` / `## transition conditions` 3섹션 고정. 다른 섹션 없어야 함 |
 | B2 | CRITICAL | 전환조건에 "다음 단계 이름" 포함 | "다음은 XX로 넘어간다" 금지. exit 조건만 기술 |
-| B3 | CRITICAL | begin/endCall 누락 | flow에 begin과 endCall이 각각 최소 1개 존재해야 함 |
+| B3 | CRITICAL | begin/종료 노드 | begin 이 정확히 1개인가(0개·2개 이상이면 저장 차단). begin 에서 endCall·transferCall·transferAgent 중 하나에 도달하는 경로가 있는가(없으면 저장은 되지만 `no_terminal_reachable` advisory) |
 | B4 | WARN | 목적 단일성 | 한 노드의 목적이 2개 이상이면 분리 검토 |
 | B5 | WARN | 전환조건이 고객 발화 기반 아님 | "안내완료", "처리완료" 같은 에이전트 행동 기반 조건. 사용자 응답을 기다리지 않는 실행 노드 제외 |
 | B6 | WARN | exit 상태 수 부족 | conversation 노드에 exit 상태가 1개뿐이면 거절/보류 분기 누락 가능 |
@@ -94,7 +94,7 @@ flow agent 설계물(flowchart + 노드 상세 설계)을 체크리스트 기반
 | D8 | CRITICAL | 실행 불가능 edge | begin 으로 들어가는 edge, endCall 에서 나가는 edge, note 로 들어가거나 나가는 edge, 또는 condition node 에서 나가는 `ai` edge 를 만들었는가 |
 | D9 | CRITICAL | deprecated node write 시도 | public `flow` 로 저장하려는 graph 에 `function` 또는 legacy `knowledge` node 가 남아 있는가. 조회 결과에는 보일 수 있지만 public `flow` write 에서는 거절되므로 마이그레이션 필요 |
 | D10 | CRITICAL | begin edge skip 오사용 | `begin` 에서 첫 실행 node 로 나가는 edge 에 `skip_user_response:true` 를 붙였는가 |
-| D11 | CRITICAL | fallback 으로 정상 진행 표현 | extraction 완료, static one-shot 안내 후 다음 단계, 성공/일반 진행 edge 를 fallback 으로 만들었는가. fallback 은 실패/else/default path 여야 함 |
+| D11 | CRITICAL | fallback 으로 정상 진행 표현 | extraction 완료, static one-shot 안내 후 다음 단계, 성공/일반 진행 edge 를 fallback 으로 만들었는가. fallback 은 실패/else/default path 여야 함. 단 `begin` 의 시작 edge 는 fallback 이 맞다(엔진이 begin edge 의 다른 condition 을 거절) |
 | D12 | WARN | 불필요한 agent data override | flow graph 만 만들거나 검증하는데 agent 최상위 `data` 를 보내거나, `data.stt.speed`, `llm`, `voice`, `speech` 기본값을 복사했는가 |
 
 ### E. 통화 흐름 안전성 (silent termination 방지)
@@ -137,7 +137,7 @@ schema 자체는 통과해도 사용자가 갑자기 통화 끊긴 듯한 경험
 - CRITICAL 1건 이상 또는 WARN 3건 이상 → **수정 필요**
 ```
 
-CRITICAL이 없고 WARN이 경미하면 "통과"로 판정. 각 항목은 1~2문장으로 간결하게 작성한다.
+판정은 위 기준을 따른다. 각 항목에는 문제와 구체적 수정 방법만 쓴다.
 
 ### 수정 가이드
 
@@ -154,7 +154,7 @@ CRITICAL이 없고 WARN이 경미하면 "통과"로 판정. 각 항목은 1~2문
 | CRITICAL F2~F4 (transferAgent / tool 식별자 누락, 임의 fixture 값) | 실제 조회/사용자 제공 값으로 교체하거나 해당 노드를 제거한 뒤 dry-run 재실행 | 해당 노드 + dry-run 응답 재확인 |
 | CRITICAL D7~D8 (public flow 계약 위반) | schema endpoint 결과 기준으로 field casing / edge 방향 / condition type 을 수정 | 해당 graph + dry-run 응답 재확인 |
 | CRITICAL D9 (deprecated node write 시도) | `function`은 `tool`/`api`로, legacy `knowledge`는 conversation node-level knowledge 설정으로 마이그레이션. 보존만 필요하면 legacy `flow_data` 경로 사용 | 해당 graph + dry-run 응답 재확인 |
-| CRITICAL D10~D11 (edge semantics 오류) | begin edge 의 skip 을 제거하고, 정상 진행 edge 는 명시 condition 으로 바꾸며 fallback 은 실패/else/default path 로만 남김 | 해당 graph + dry-run 응답 재확인 |
+| CRITICAL D10~D11 (edge semantics 오류) | begin edge 의 skip 을 제거하고(begin 의 fallback 시작 edge 는 그대로 둔다), 정상 진행 edge 는 명시 condition 으로 바꾸며 그 밖의 fallback 은 실패/else/default path 로만 남김 | 해당 graph + dry-run 응답 재확인 |
 | WARN D12 (불필요한 agent data override) | flow-only 작업이면 `data` 를 생략하고, 필요한 agent-level subtree 만 schema 확인 후 보냄 | payload diff 재확인 |
 | WARN | 해당 항목만 수정 | 수정 항목에 대해서만 재확인 |
 

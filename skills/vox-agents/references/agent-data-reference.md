@@ -40,7 +40,7 @@ schema endpoint 결과를 따른다. 현재 기본 payload 에서는 `prompt`, `
 ### voice
 
 - `id` / `provider` / `model` override 시 허용 조합은 `list_voice_models` 로 조회한다. 기본 음성을 쓸 거면 `voice` 전체를 생략해 서버 기본값을 적용한다 (id/provider/model 값을 하드코딩하지 않는다).
-- `speed`: 발화 속도 (0.5~2.0).
+- `speed`: 발화 속도. 허용 범위는 voice마다 다르다 — `list_voice_models` 결과의 `capabilities.speed`를 따른다.
 - `temperature`: 음성 변이.
 
 ### postCall
@@ -73,9 +73,9 @@ schema endpoint 결과를 따른다. 현재 기본 payload 에서는 `prompt`, `
 
 - `isAllowInterruption`: 사용자가 에이전트 발화 중 끊을 수 있는지. 기본 `true`.
 - `isAllowTurnDetection`: 턴 감지 활성화. 기본 `true`.
-- `responsiveness`: 0.0~2.0. 높을수록 빠르게 응답 시작. 기본 1.0.
+- `responsiveness`: 0.0~1.0. 높을수록 빠르게 응답 시작. 기본 1.0 (최댓값).
 - `responsiveness` 는 latency 에 직접 영향을 주는 production default 다. 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하고, 자연스러움/안정성 개선을 추측해 `0.8` / `0.9` 로 낮추지 않는다.
-- `boostedKeywords`: `string[]` — STT가 더 잘 인식해야 할 키워드 (브랜드명, 전문용어).
+- `boostedKeywords`: 문자열 — STT가 더 잘 인식해야 할 키워드 (브랜드명, 전문용어). 정확한 형식은 `agent-data-create` schema 결과를 따른다.
 
 ### security
 

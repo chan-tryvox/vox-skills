@@ -27,7 +27,7 @@ get_call(call_id)
 2) 콜에 연결된 agent 프롬프트 가져오기
 
 ```text
-get_agent(agent_id = call.agent_id)
+get_agent(agent_id = call.agent.agent_id)
 ```
 
 - vox 플랫폼이 실제로 읽는 system prompt는 보통 `agent.data.prompt.prompt`에 있다.
@@ -42,7 +42,7 @@ get_agent(agent_id = call.agent_id)
 
 ```text
 update_agent(
-  agent_id = call.agent_id,
+  agent_id = call.agent.agent_id,
   data = {"prompt": {"prompt": revised_system_prompt}}
 )
 ```
@@ -87,7 +87,7 @@ update_agent(
 
 아래 2가지를 반드시 제공합니다.
 
-1) `patch_notes`: 무엇을 왜 바꿨는지(최대 8개 불릿)
+1) `patch_notes`: 무엇을 왜 바꿨는지(변경 단위마다 한 줄)
 2) `revised_system_prompt`: 개선된 system prompt 전체(Markdown)
 
 ```yaml

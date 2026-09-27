@@ -50,9 +50,9 @@ vox.ai 웹 앱의 **배포** 그룹은 실제 전화 발신/수신을 설정하�
 
 ---
 
-## 2. 단건 발신 (`/dashboard/{orgId}/outbound/single`)
+## 2. 단건 발신 (`/dashboard/{orgId}/outbound/call/single`)
 
-특정 수신자 1명에게 테스트 통화를 거는 페이지. 동적 변수 입력 → 즉시 발신 → 로그 확인 흐름.
+특정 수신자 1명에게 테스트 통화를 거는 페이지. 동적 변수 입력 → 즉시 발신 → 로그 확인 흐름. 문자 단건은 `/dashboard/{orgId}/outbound/sms/single`이다. 옛 `/outbound/single` 주소는 이 화면으로 넘어간다.
 
 ### 2.1 폼 항목
 
@@ -73,7 +73,7 @@ vox.ai 웹 앱의 **배포** 그룹은 실제 전화 발신/수신을 설정하�
 
 ---
 
-## 3. 대량 발신 (`/dashboard/{orgId}/outbound/batch`)
+## 3. 대량 발신 (`/dashboard/{orgId}/outbound/campaigns`)
 
 다수의 대상에게 자동으로 전화를 거는 페이지. **프로젝트(스프레드시트) + 캠페인(발신 실행 건)** 구조.
 
@@ -119,9 +119,9 @@ vox.ai 웹 앱의 **배포** 그룹은 실제 전화 발신/수신을 설정하�
 
 ---
 
-## 4. 발신 기록 (`/dashboard/{orgId}/outbound/batch-history`)
+## 4. 발신 기록 (`/dashboard/{orgId}/outbound/campaigns?tab=history`)
 
-캠페인별 발신 결과를 한눈에 본다.
+캠페인별 발신 결과를 한눈에 본다. 대량 발신 화면의 「이력」 탭이며, 옛 `/outbound/batch-history` 주소는 이 탭으로 넘어간다.
 
 ### 4.1 테이블 칼럼
 - **이름**: 캠페인 이름

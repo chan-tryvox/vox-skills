@@ -18,7 +18,7 @@
 - public `flow` node data 는 snake_case 다. node 실행 설정 필드(`prompt_type`, `static_sentence`, `api_configuration`, `response_variables`, `transfer_configuration`, `agent`, `tool_id` 등)는 schema endpoint 결과를 따른다.
 - 각 노드는 `## name / ## content / ## transition conditions` 구조를 유지한다.
 - nested config default 채우기 / dry-run 호출 / 응답 처리는 SKILL.md 의 Core Operating Rules 와 [Response Handling](../SKILL.md#response-handling) 을 따른다 — 식별자 (`url`, `agent.agent_id`, `tool_id`) 만 책임지고 채우고 나머지 nested 필드는 백엔드 보충을 신뢰한다.
-- 정상 진행 edge 를 fallback 으로 표현하지 않는다. extraction 완료, API 성공 후 일반 진행, tool 성공 후 일반 진행은 schema 가 허용하는 명시 condition 으로 쓰고, fallback 은 실패/else/default 복구 path 에만 둔다.
+- 정상 진행 edge 를 fallback 으로 표현하지 않는다. extraction 완료, API 성공 후 일반 진행, tool 성공 후 일반 진행은 schema 가 허용하는 명시 condition 으로 쓰고, fallback 은 begin 의 시작 edge 와 실패/else/default 복구 path 에만 둔다.
 
 ## extraction
 

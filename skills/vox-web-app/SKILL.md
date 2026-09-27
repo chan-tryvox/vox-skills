@@ -35,14 +35,15 @@ vox.ai 웹 앱(`https://www.tryvox.co/dashboard/{organizationId}/...`)에서 사
 | 구축 | 보이스 | `/dashboard/{orgId}/voice` |
 | 구축 | 도구 | `/dashboard/{orgId}/tools` |
 | 구축 | 지식 베이스 | `/dashboard/{orgId}/knowledge` |
-| 배포 | 번호 관리 | `/dashboard/{orgId}/numbers` |
-| 배포 | 발신 > 단건 | `/dashboard/{orgId}/outbound/single` |
-| 배포 | 발신 > 대량 | `/dashboard/{orgId}/outbound/batch` |
-| 배포 | 발신 > 기록 | `/dashboard/{orgId}/outbound/batch-history` |
-| 모니터링 | 분석 | `/dashboard/{orgId}/analytics` |
-| 모니터링 | 통화 기록 | `/dashboard/{orgId}/history` |
+| 배포 | 전화번호 | `/dashboard/{orgId}/numbers` |
+| 배포 | 위젯 | `/dashboard/{orgId}/widget` |
+| 배포 | 연동 | `/dashboard/{orgId}/integrations` |
+| 발신 | 전화 | `/dashboard/{orgId}/outbound/call/single` |
+| 발신 | 문자 | `/dashboard/{orgId}/outbound/sms/single` |
+| 발신 | 대량 발신 | `/dashboard/{orgId}/outbound/campaigns` |
+| 모니터링 | 기록 (통화·채팅·문자 탭) | `/dashboard/{orgId}/history` |
+| 모니터링 | 고객 | `/dashboard/{orgId}/customers` |
 | 모니터링 | 알림 | `/dashboard/{orgId}/alerts` |
-| 평가 | 테스트 | `/dashboard/{orgId}/evals` |
 | 설정 | 워크스페이스 | `/dashboard/{orgId}/settings/workspace` |
 | 설정 | 결제 | `/dashboard/{orgId}/settings/billing` |
 | 설정 | 멤버 | `/dashboard/{orgId}/settings/member` |
@@ -104,7 +105,7 @@ vox.ai 웹 앱(`https://www.tryvox.co/dashboard/{organizationId}/...`)에서 사
 
 ### Docs (vox-docs)
 - `https://docs.tryvox.co/docs/start/quickstart` — 빠른 시작 가이드
-- `https://docs.tryvox.co/docs/operate/deploy/outbound-batch` — 대량발신 가이드
+- `https://docs.tryvox.co/docs/operate/outbound/campaigns` — 대량발신 가이드
 - `https://docs.tryvox.co/docs/operate/monitor/history` — 통화 기록 가이드
 
 ### App URLs

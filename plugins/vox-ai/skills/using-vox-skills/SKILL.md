@@ -35,7 +35,7 @@ vox.ai 관련 요청의 routing entrypoint. domain 로직을 직접 실행하지
 
 ## Docs MCP 활용
 
-`vox-docs` MCP 서버(`https://fleek.mintlify.app/mcp`)는 vox.ai 공식 문서 ~85페이지를 실시간 검색한다. 스킬이 커버하지 않는 영역(요금/빌링, SDK, 보안, 배포 상세, 모니터링, API reference 등)은 docs MCP로 직접 답변한다.
+`vox-docs` MCP 서버(`https://fleek.mintlify.app/mcp`)는 vox.ai 공식 문서를 실시간 검색한다. 스킬이 커버하지 않는 영역(요금/빌링, SDK, 보안, 배포 상세, 모니터링, API reference 등)은 docs MCP로 직접 답변한다.
 
 **사용 방법:**
 1. `vox-docs` MCP의 `search_vox_ai_docs` tool로 검색 (query 예: "pricing", "SDK javascript", "webhook", "SIP telephony")
@@ -55,7 +55,7 @@ docs MCP는 router가 직접 처리하는 검색 케이스다 — 단순 검색 
 
 ## Routing Rules
 
-1. **1% rule** — 요청이 1%라도 특정 domain skill에 해당되면 해당 skill을 invoke한다. domain skill 내부에 사실 검증과 가드레일이 있어, router가 직접 답하면 이를 우회하게 된다.
+1. **domain skill 우선** — 요청이 domain skill의 영역에 걸치면 router가 직접 답하지 말고 그 skill을 invoke한다. domain skill 내부에 사실 검증과 가드레일이 있어, router가 직접 답하면 이를 우회하게 된다. 아래 표에서 docs MCP나 router 직접 처리로 정한 요청은 예외다.
 2. **One primary skill** — 한 요청에는 하나의 primary skill만 선택한다. 두 스킬을 동시에 invoke하면 operating rule이 충돌하고 output 형식이 섞인다.
 3. **UI 보충 참조** — 다른 스킬 실행 중 웹 앱 UI 경로 안내가 필요하면 `vox-web-app`을 secondary로 참조한다. UI 경로와 딥링크는 자주 변경되므로 web-app의 references가 정확한 경로를 가지고 있다.
 

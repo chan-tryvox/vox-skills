@@ -103,7 +103,7 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 
 ### MCP Tools (vox)
 - `create_agent` — 에이전트 생성 (prompt + agent.data)
-- `update_agent` — 에이전트 수정 (prompt/llm/stt/voice/postCall/tools 등 개별 필드)
+- `update_agent` — 에이전트 수정 (`data` 안에 바꿀 key만 보낸다. object sub-schema는 한 단계 병합, `builtInTools`·`toolIds`·`presetDynamicVariables`·`manuals`는 통째로 교체)
 - `get_agent` — 에이전트 상세 조회 (현재 prompt, 설정 확인)
 - `list_agents` — 에이전트 목록
 - `get_call` — 통화 로그 조회 (진단 시 transcript 확인)

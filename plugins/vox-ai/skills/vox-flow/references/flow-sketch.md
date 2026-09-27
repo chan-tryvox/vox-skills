@@ -34,7 +34,7 @@
 - **노드 이름**: 차트의 노드 이름과 일치
 - **타입**: conversation / extraction / condition / api / endCall 등
 - **목적**: 한 줄
-- **주요 전환조건**: exit 조건을 쉼표로 나열. extraction 노드는 "자동 전환"으로 표기.
+- **주요 전환조건**: exit 조건을 쉼표로 나열. extraction 노드는 "추출 완료 후 진행"처럼 명시 조건으로 표기한다(정상 진행을 fallback 으로 쓰지 않는다 — SKILL.md 규칙 16).
 
 ### 3. 핸드오프 메모 (2단계용)
 
