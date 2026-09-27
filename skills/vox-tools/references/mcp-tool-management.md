@@ -17,7 +17,7 @@ vox.ai 에이전트는 두 종류의 도구를 사용합니다.
   - 상세: See [mcp-built-in-tools.md](mcp-built-in-tools.md)
 - **커스텀 도구**: 조직이 직접 만드는 HTTP 엔드포인트 호출 도구. `create_tool()`로 만들고 `data.toolIds[]`로 연결합니다.
   - 상세: See [mcp-custom-tools.md](mcp-custom-tools.md)
-- **에이전트 설정 데이터**(`agent.data`): `vox-agents` 스킬의 `references/agent-data-reference.md` 참조
+- **에이전트 설정 데이터**(`agent.data`): `vox-agents` 스킬을 호출해 agent data reference를 받는다
 
 ## End-to-end 워크플로우
 

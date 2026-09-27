@@ -241,7 +241,7 @@ flow 에서 변수는 노드 간 데이터를 전달하는 핵심 메커니즘�
 - conversation node: 예상 외 응답 path 는 보통 fallback 이 아니라 ai condition 으로 명시한다. 예: "고객이 거절했거나 통화를 끊으려는 경우".
 - api / tool / sendSms / transferCall / transferAgent node: 성공/일반 path 는 ai condition 으로 명시하고, 실패 path 는 fallback edge 로 명시한다. API 응답 변수 비교는 다음 condition node 에서 logic edge 로 처리한다.
 - extraction node / static one-shot conversation node: 정상 진행 edge 를 fallback 으로 만들지 않는다. "추출 완료 후 다음 단계로 진행", "안내 멘트 발화 후 다음 단계로 진행"처럼 명시 condition 을 둔다.
-- begin node: 첫 실행 node 로 fallback edge 하나를 둘 수 있지만 `skip_user_response:true` 는 붙이지 않는다.
+- begin node: 첫 실행 node 로 가는 fallback edge 하나를 둔다. begin edge 에는 fallback 외 condition 을 쓸 수 없고(엔진이 거절), `skip_user_response:true` 도 붙이지 않는다.
 - endCall node 와 note node 에서 나가는 edge 는 두지 않는다. note node 는 editor-only annotation 이므로 실행 흐름에 연결하지 않는다.
 
 ### 4. Extraction 전에 Conversation

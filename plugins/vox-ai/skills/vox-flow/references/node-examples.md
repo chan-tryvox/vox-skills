@@ -85,7 +85,7 @@
 
 ## transition conditions
 - 성공: API 응답 정상 수신 시 다음 노드로 진행. `condition:{type:"ai", prompt:"요청 성공 시"}` 로 보내고, 응답 변수(`{{order_status}}`) 값 비교는 api 노드의 edge 가 아니라 다음 condition 노드의 logic edge 에서 한다.
-- 실패: API 호출 실패 시 [API조회실패안내] conversation 노드로 진행. fallback edge 명시. **endCall 직행 금지** — 실패 시 사용자에게 양해 멘트 한 마디라도 전달.
+- 실패: API 호출 실패 시 [API조회실패안내] conversation 노드로 진행. fallback edge 명시. **무음·빈 멘트 endCall 금지** — 실패 시 사용자에게 양해 멘트 한 마디라도 전달한다. 종료만 남았다면 복구 안내 멘트를 가진 endCall 로 보내도 된다.
 ```
 
 ### 짝꿍 노드: API 실패 안내 conversation

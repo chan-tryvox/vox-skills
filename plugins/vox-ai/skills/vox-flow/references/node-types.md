@@ -43,12 +43,12 @@ list_schemas(namespace="flow-schema", category="flow-node")
 get_schema(namespace="flow-schema", schema_type="node-{type}", detail="standard")
 ```
 
-## 절대 하지 말 것
+## 작성 규칙
 
-- public `flow` 에 legacy routing key 를 넣지 않는다: node `data.transitions`, `data.logicalTransitions`, `data.globalNodeSettings`, edge `sourceHandle`, `targetHandle`, `type:"custom"`.
-- `get_schema(flow-data)` + 같은 detail 의 `get_schema(node-{type})` 를 중복 호출하지 않는다.
-- `detail="standard"` 를 default 로 사용하지 않는다. 항상 minimal 로 시작한다.
-- schema 결과 없이 예전 예시를 복사하지 않는다.
+- public `flow` 는 edge 와 `data.global_node_setting` 으로 라우팅한다. legacy routing key(node `data.transitions`, `data.logicalTransitions`, `data.globalNodeSettings`, edge `sourceHandle`, `targetHandle`, `type:"custom"`)는 저장 시 거절된다.
+- `get_schema(flow-data)` 가 이미 모든 node $def 를 담으므로 같은 detail 의 `get_schema(node-{type})` 는 다시 부르지 않는다.
+- minimal 로 시작하고, standard 는 위 per-node fallback 경우에만 쓴다.
+- 예시는 schema 결과와 맞춰 본 뒤에만 쓴다.
 
 ## Dry-run before create / update
 
@@ -66,7 +66,7 @@ get_schema(namespace="flow-schema", schema_type="node-{type}", detail="standard"
 
 | Node | 선택 기준 |
 |---|---|
-| `begin` | flow 시작점. 보통 첫 실행 node 로 fallback edge 하나를 둔다. |
+| `begin` | flow 시작점. 첫 실행 node 로 fallback edge 하나를 둔다(begin edge 는 fallback 만 허용). |
 | `conversation` | 고객 발화를 듣고 LLM 이 응답하거나 exit 조건을 판단해야 하는 대화 단계. |
 | `condition` | 이미 추출된 변수나 API 응답 값을 deterministic logic 으로 분기할 때. 고객 발화를 직접 해석하는 용도가 아니다. |
 | `extraction` | 이전 대화 컨텍스트에서 이름, 주문번호, 의사 여부 같은 변수를 추출할 때. |
@@ -84,7 +84,7 @@ get_schema(namespace="flow-schema", schema_type="node-{type}", detail="standard"
 - 변수 비교는 `condition:{type:"logic", equations:[...], operator:"&&"|"||"}` 로 표현한다. source 는 condition node 로 둔다.
 - 실패/else/default 는 `condition:{type:"fallback"}` 으로 표현한다.
 - fallback 은 자동으로 생긴다고 가정하지 않는다. 필요한 fallback edge 를 모두 명시한다.
-- begin node 에서 첫 실행 node 로 가는 edge 는 보통 fallback condition 을 쓴다.
+- begin node 에서 첫 실행 node 로 가는 edge 는 fallback condition 만 쓸 수 있다(다른 condition 은 저장 시 거절된다).
 - edge `skip_user_response` 는 사용자 응답을 기다리지 않는 route 에만 쓴다. static conversation → endCall edge, 실패 fallback edge 에 습관적으로 붙이지 않는다.
 - begin 으로 들어가는 edge, endCall 에서 나가는 edge, note 로 들어가거나 나가는 edge 는 만들지 않는다.
 - condition node 에서 나가는 edge 는 `logic` 또는 `fallback` condition 만 쓴다. 응답 변수 값 비교는 api node 의 `ai` edge 가 아니라 다음 condition node 의 `logic` edge 로 처리한다.

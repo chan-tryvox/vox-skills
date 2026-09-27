@@ -21,7 +21,7 @@ MCP 서버 연결 설정(Claude, Cursor, ChatGPT 등)은 `vox-onboarding` 스킬
 
 도구 장착/해제는 read-modify-write다. 순서를 건너뛰면 `data.builtInTools`/`data.toolIds`가 전체 교체되어 기존 도구가 사라진다.
 
-1. `list_schemas(namespace="tool-schema", category="built_in", include_schema=true)` 또는 `get_schema(namespace="tool-schema", schema_type="<toolType>")`로 현재 built-in 목록과 payload shape를 확인한다. 커스텀 도구는 `list_tools()`로 `uid`를 확인한다.
+1. `list_schemas(namespace="tool-schema", category="built_in", include_schema=true)` 또는 `get_schema(namespace="tool-schema", schema_type="<toolType>")`로 현재 built-in 목록과 payload shape를 확인한다. 커스텀 도구는 `list_tools()` 결과 `items[].id`를 확인한다.
 2. `get_agent()`로 현재 `data.builtInTools`와 `data.toolIds`를 읽는다.
 3. 기존 항목을 그대로 두고 추가/제거만 반영한 **전체 배열**을 만든다. 기존 도구 객체의 `speakDuringExecution`, `transferConfigurations`, `responseMode` 같은 설정은 손대지 않는다.
 4. 유저가 "적용/업데이트"를 명시했을 때만 `update_agent(agent_id=..., data={"builtInTools": [...]} | {"toolIds": [...]})`를 호출한다.
@@ -56,7 +56,7 @@ MCP 서버 연결 설정(Claude, Cursor, ChatGPT 등)은 `vox-onboarding` 스킬
 - `get_agent`, `update_agent` — 도구 장착/해제 시 사용 (`data.builtInTools[]`, `data.toolIds[]`)
 
 ### Docs (vox-docs)
-- `https://docs.tryvox.co/docs/build/tools` — 도구 관리 개요
+- `https://docs.tryvox.co/docs/build/tools/overview` — 도구 관리 개요
 
 ### App URLs
 - `https://www.tryvox.co/agent/{agentId}` — 에이전트 상세 (Tools 탭)

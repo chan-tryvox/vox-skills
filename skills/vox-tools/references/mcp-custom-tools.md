@@ -2,25 +2,29 @@
 
 조직 단위 커스텀 도구(HTTP/API)의 조회, 생성, 수정, 삭제 및 에이전트 연결/해제입니다. 공개 MCP `create_tool`은 HTTP 엔드포인트 호출 설정(API 타입)만 지원합니다. MCP 서버를 도구로 붙이는 MCP 타입 커스텀 도구는 웹 앱(`/dashboard/{orgId}/tools?create=mcp`)에서만 만들 수 있으며, 그 안내는 `vox-web-app` 스킬이 담당합니다.
 
-## 조회: list_tools(organization_id)
+## 조회: list_tools()
 
 ```
-list_tools(organization_id="org-uuid")
+list_tools()
 ```
 
 | 파라미터 | 필수 | 설명 |
 |---------|------|------|
-| `organization_id` | 선택 | 미지정 시 기본 조직 사용 |
+| `cursor` | 선택 | 이전 응답의 `next_cursor` |
+| `limit` | 선택 | 페이지 크기 (1-100) |
+| `sort_order` | 선택 | `asc` / `desc` |
+
+조직은 현재 세션의 활성 조직이다(`set_organization`으로 전환).
 
 응답 예시:
 
 ```json
 {
-  "organization_id": "org-uuid",
-  "tools": [
-    {"uid": "tool-uuid", "name": "check_order_status", "description": "주문 상태 조회"}
+  "items": [
+    {"id": "tool-uuid", "name": "check_order_status", "description": "주문 상태 조회"}
   ],
-  "count": 1
+  "next_cursor": null,
+  "total_count": 1
 }
 ```
 
@@ -57,7 +61,6 @@ create_tool(
 | `speak_during_execution` | 선택 | 실행 중 발화 설정 |
 | `allow_interruption_during_execution` | 선택 | 실행 중 인터럽트 허용 |
 | `response_mode` | 선택 | `"wait"` (기본, 응답 대기) 또는 `"fire_and_forget"` (요청만 보내고 진행) |
-| `organization_id` | 선택 | 미지정 시 기본 조직 사용 |
 
 `"fire_and_forget"` 은 늦게 도착한 응답을 대화에 주입하지 않으며, flow 의 응답 변수·결과 기반 transition 과 조합하면 저장이 거부됩니다. flow `tool` 노드는 이 설정을 그대로 상속합니다 (노드 오버라이드 없음).
 
@@ -92,7 +95,7 @@ delete_tool(tool_id="tool-uuid")
 update_agent(agent_id="agent-uuid", data={"toolIds": ["tool-uuid"]})
 ```
 
-`list_tools()` 또는 `create_tool()` 응답의 `uid`를 `data.toolIds` 배열에 넣어 전달합니다. `toolIds`는 top-level 인자가 아니라 `data` 안의 필드입니다 — top-level로 보내면 호출이 거부됩니다.
+`list_tools()` 또는 `create_tool()` 응답의 `id`를 `data.toolIds` 배열에 넣어 전달합니다. `toolIds`는 top-level 인자가 아니라 `data` 안의 필드입니다 — top-level로 보내면 호출이 거부됩니다.
 
 ## 에이전트 해제: update_agent(data={"toolIds": [...]})
 

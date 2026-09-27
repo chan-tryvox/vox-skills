@@ -79,7 +79,7 @@ Plugin을 설치한 경우에는 `/vox-ai:vox-onboarding`(Claude Code/Codex/Cowo
 | `list_calls` | 통화 기록 |
 | `get_call` | 통화 상세 |
 | `create_call` | 아웃바운드 콜 |
-| `validate_flow` | public `flow` 검증 (dry-run, 기본 all; critical/runtime level 지원) |
+| `validate_flow` | public `flow` 검증 (dry-run. level 기본값 critical, runtime·all 지원) |
 | `update_agent_partial` | legacy `flow_data` graph 부분 수정 (구조 ops, dry-run 지원) |
 | `validate_flow_data` | legacy `flow_data` 검증 (dry-run, fixed_flow_data 반환) |
 | `autofix_flow_data` | legacy `flow_data` 자동 보정 (preview / apply) |

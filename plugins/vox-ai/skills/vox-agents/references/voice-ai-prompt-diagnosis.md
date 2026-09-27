@@ -27,12 +27,12 @@ get_call(call_id)
 
 - `call.transcript`: 유저/에이전트 발화 + tool invocation/result가 포함된 transcript
 - `call.dynamic_variables`: 런타임 변수(미주입/빈 값) 관련 이슈 확인에 유용
-- `call.agent_id`: 이 콜이 사용한 agent UUID (있으면 다음 단계로)
+- `call.agent.agent_id`: 이 콜이 사용한 agent UUID (`call.agent`는 `{agent_id, agent_version}` 매핑. 있으면 다음 단계로)
 
 2) 콜에 연결된 agent의 현재 프롬프트 가져오기
 
 ```text
-get_agent(agent_id = call.agent_id)
+get_agent(agent_id = call.agent.agent_id)
 ```
 
 - vox 플랫폼이 실제로 읽는 system prompt는 보통 `agent.data.prompt.prompt`에 있다.
@@ -46,7 +46,7 @@ get_agent(agent_id = call.agent_id)
 
 예외/주의:
 - `call.transcript`가 `null`이면(민감정보 저장 opt-out 등), 유저에게 실패 구간 전후 로그(3–6턴)만 붙여달라고 요청한다.
-- `call.agent_id`가 비어 있으면(레거시/데이터 누락), 유저에게 `agent_id` 또는 system prompt를 요청한다.
+- `call.agent.agent_id`를 얻지 못하면(레거시/데이터 누락), 유저에게 `agent_id` 또는 system prompt를 요청한다.
   - 권한/접근 문제가 있으면, system prompt를 유저가 직접 붙여넣게 한다.
 
 ### 실패 사례 포맷(권장)

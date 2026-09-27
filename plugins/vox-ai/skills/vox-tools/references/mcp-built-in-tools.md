@@ -119,7 +119,7 @@ MCP/v3에서는 기존 `transferAgentId` / `transferAgentVersion` 대신 `agent`
 
 IVR 메뉴 탐색을 위한 DTMF 톤을 전송합니다.
 
-- 설계 가이드: `vox-agents/references/ivr-navigation-best-practice.md` 참조
+- 설계 가이드: `vox-agents` 스킬을 호출해 IVR 탐색 가이드(ivr-navigation-best-practice)를 받는다. 다른 스킬의 파일 경로는 플러그인 설치 위치에 따라 해석되지 않는다.
 
 ```json
 {"toolType": "send_dtmf", "name": "send_dtmf", "description": "IVR 메뉴 탐색 시 DTMF 톤을 전송합니다."}

@@ -111,10 +111,9 @@ vox.ai 웹 앱(`tryvox.co/dashboard`) 사용 가이드. 다른 스킬에서 UI �
 
 - 구축(build): agents, voice, tools, knowledge
 - 배포(deploy): numbers, single/batch outbound
-- 모니터링(monitor): analytics, history, alerts
+- 모니터링(monitor): history, alerts (통화 차트는 대시보드 홈)
 - 설정(settings): workspace, billing, member, api-key, webhook, sms, profile
 - 딥링크 치트시트 (`?new=1`, `?clone=true`, `?create=api` 등)
-- Chrome MCP extension으로 화면 보며 안내 지원
 - `skills/vox-web-app/SKILL.md`
 
 ## 검사

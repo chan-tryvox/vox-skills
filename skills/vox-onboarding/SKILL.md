@@ -40,7 +40,7 @@ vox.ai MCP 도구를 사용해 음성 AI 에이전트를 만들고 실제 전화
 
 수집한 정보로:
 1. 에이전트 이름 자동 생성 (업종 + 사용 사례 기반)
-2. 위 템플릿 기반으로 프롬프트 생성
+2. `vox-agents` 스킬이 돌려준 프롬프트를 사용
 3. 사용자에게 이름과 프롬프트 요약을 보여주고 확인: "이렇게 만들까요?"
 4. 확인 받으면 `create_agent` MCP 도구로 생성
    - name: 이름
@@ -58,7 +58,7 @@ vox.ai MCP 도구를 사용해 음성 AI 에이전트를 만들고 실제 전화
 
 사용자가 번호를 알려주면:
 1. `list_telephone_numbers` MCP 도구로 보유 번호 확인
-2. 보유 번호가 있으면: 해당 번호를 call_from으로 사용
+2. 보유 번호가 있으면: 해당 번호를 `from_number`로 사용
 3. **보유 번호가 없으면 (results가 비어있음)**:
    - `list_organizations` MCP 도구로 현재 organization_id를 확인
    - 아래 URL을 사용자에게 안내한다 (이 URL로 들어가면 번호 구매 다이얼로그가 바로 열림):
@@ -69,9 +69,9 @@ vox.ai MCP 도구를 사용해 음성 AI 에이전트를 만들고 실제 전화
    - 사용자가 구매 완료를 알리면 `list_telephone_numbers`를 다시 호출하여 확인
    - 구매를 원하지 않으면 Step 4로 넘어간다
 4. 번호가 있으면 `create_call` MCP 도구 실행
-   - agent_id: Step 2에서 생성한 에이전트 ID
-   - call_from: 보유 번호
-   - call_to: 사용자가 알려준 번호
+   - agent: `{ agent_id: <Step 2에서 생성한 에이전트 ID>, agent_version: "current" }`
+   - from_number: 보유 번호 (하이픈 없이)
+   - to_number: 사용자가 알려준 번호 (하이픈 없이)
 5. 발신 직후 연결이 시작된다. 통화 후 결과는 `get_call` 도구로 확인한다.
 
 ### Step 4: 인바운드 안내 (전화 받기)
