@@ -39,8 +39,8 @@ https://www.tryvox.co/dashboard/{orgId}/tools?create=api
 | 파라미터 | 사용 페이지 | 형식 | 용도 |
 |---------|------------|------|------|
 | `callId` | `/history` | `?callId={uuid}` | 특정 통화의 상세 시트를 바로 오픈 |
-| `numberId` | `/outbound/single` | `?numberId={id}` | 발신 번호를 사전 선택한 상태로 단건 발신 폼 열기 |
-| `batchCampaignIds` | `/outbound/batch-history` | `?batchCampaignIds={id1},{id2}` | 특정 캠페인들만 필터된 상태로 기록 페이지 열기 |
+| `numberId` | `/outbound/call/single` | `?numberId={id}` | 발신 번호를 사전 선택한 상태로 단건 발신 폼 열기 |
+| `batchCampaignIds` | `/outbound/campaigns` | `?tab=history&batchCampaignIds={id1},{id2}` | 특정 캠페인들만 필터된 상태로 기록 페이지 열기 |
 | `folderId` + `type` | `/agents/new` | `?folderId={id}&type=single_prompt` | 특정 폴더 내 특정 타입으로 에이전트 생성 |
 
 ### 사용 예시
@@ -54,7 +54,7 @@ https://www.tryvox.co/dashboard/{orgId}/history?callId={call_uuid}
 **"단건 발신 테스트를 안내할 때":**
 ```
 테스트 발신은 이 페이지에서 하세요. 발신 번호는 이미 선택되어 있습니다:
-https://www.tryvox.co/dashboard/{orgId}/outbound/single?numberId={num_id}
+https://www.tryvox.co/dashboard/{orgId}/outbound/call/single?numberId={num_id}
 ```
 
 ---
@@ -73,10 +73,11 @@ https://www.tryvox.co/dashboard/{orgId}/outbound/single?numberId={num_id}
 | 도구 목록 | `/dashboard/{orgId}/tools` |
 | 지식 베이스 목록 | `/dashboard/{orgId}/knowledge` |
 | 번호 관리 | `/dashboard/{orgId}/numbers` |
-| 발신 허브 | `/dashboard/{orgId}/outbound` |
-| 단건 발신 | `/dashboard/{orgId}/outbound/single` |
-| 대량 발신 | `/dashboard/{orgId}/outbound/batch` |
-| 발신 기록 | `/dashboard/{orgId}/outbound/batch-history` |
+| 발신 첫 화면 | `/dashboard/{orgId}/outbound` — 전화 단건 발신으로 넘어간다 |
+| 전화 단건 발신 | `/dashboard/{orgId}/outbound/call/single` |
+| 문자 단건 발신 | `/dashboard/{orgId}/outbound/sms/single` |
+| 대량 발신 | `/dashboard/{orgId}/outbound/campaigns` |
+| 발신 기록 | `/dashboard/{orgId}/outbound/campaigns?tab=history` |
 | 통화 기록 | `/dashboard/{orgId}/history` |
 | 알림 | `/dashboard/{orgId}/alerts` |
 | 테스트 | `/dashboard/{orgId}/evals` |
