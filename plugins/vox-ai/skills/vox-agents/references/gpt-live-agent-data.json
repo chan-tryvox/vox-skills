@@ -84,18 +84,20 @@
     }
   },
   "voice_call_preflight": {
-    "scope": "agent-server source-code checks for single_prompt voice calls; not chat sessions",
+    "scope": "current agent-server entrypoint integration checks for single_prompt inbound and outbound voice calls; not chat sessions",
     "contract_boundary": {
       "agent_schema": {
         "authority": "authoritative for API request fields and accepted values",
         "lookup": "get_schema(namespace=agent-schema, schema_type=agent-data-create|agent-data-update)"
       },
-      "runtime_preflight": "agent-server source-code behavior",
+      "runtime_preflight": "current agent-server entrypoint integration checks; not an inherent provider limitation",
       "deployed_behavior": "not_verified",
+      "provider_capability": "not_assessed",
       "provider_quality": "not_verified"
     },
     "shared": {
       "agent_type": "single_prompt",
+      "runtime_types": ["gpt_live", "grok_voice", "gemini_live"],
       "interruption": {
         "field": "data.speech.isAllowInterruption",
         "required_effective_value": true
@@ -106,27 +108,27 @@
       {
         "setting": "effective callSettings.callScreening",
         "when": "non-null",
-        "reason": "The configured screening response requires speech output."
+        "reason": "The current agent-server integration has no TTS path for the configured screening response."
       },
       {
         "setting": "any transfer_call operator destination",
-        "when": "an operator target appears anywhere in the configured transfer_call setup, including mixed phone/SIP/operator destinations, regardless of the selected destination or transfer mode",
-        "reason": "The runtime cannot play the required operator-transfer announcement."
+        "when": "an operator target appears anywhere in a direct or Manual-owned transfer_call config, including mixed phone/SIP/operator destinations, regardless of the selected destination or transfer mode",
+        "reason": "The current text-only native say path has no TTS output for the required operator-transfer announcement."
       },
       {
         "setting": "speakDuringExecution.messages",
         "when": "enabled is true and messages contains at least one non-empty item",
-        "reason": "The configured scripted tool speech requires TTS."
+        "reason": "The current agent-server tool-speech path requires TTS, which this native integration does not provide."
       },
       {
         "setting": "warmTransferStaticSentence",
         "when": "a warm transfer uses static announcement mode and the sentence is non-blank",
-        "reason": "The configured warm-transfer announcement requires TTS."
+        "reason": "The current agent-server warm-transfer path requires TTS for this announcement."
       },
       {
         "setting": "warmTransferPrompt",
         "when": "a warm transfer uses dynamic announcement mode, even when the prompt is empty",
-        "reason": "Dynamic mode still generates a warm-transfer whisper using its default instructions when the prompt is empty."
+        "reason": "The current agent-server warm-transfer path generates a whisper in dynamic mode, using default instructions when the prompt is empty; that path requires TTS."
       }
     ],
     "grok_voice": {
@@ -149,6 +151,6 @@
     "For all three native runtimes, effective data.speech.isAllowInterruption must be true. Create omission uses the true default; PATCH omission preserves the current value, so explicitly send true when switching from a stored false value. Agent-server rejects false and does not force it to true.",
     "Existing pipeline voice settings remain unchanged and are not migrated.",
     "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a native live feature and must not be rewritten to a native live model.",
-    "Voice-call preflight checks are agent-server source-code constraints, not API-schema validation or deployment evidence; do not silently drop unsupported fields."
+    "Voice-call preflight checks are current agent-server integration constraints, not API-schema validation, inherent provider limitations, or deployment evidence; do not silently drop unsupported fields."
   ]
 }

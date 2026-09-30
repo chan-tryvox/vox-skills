@@ -141,15 +141,20 @@ test("native live reference separates schema, call preflight, and deployment evi
   assert.equal(bundled, sourceText, "native live reference must match the plugin bundle");
   assert.equal(
     preflight.scope,
-    "agent-server source-code checks for single_prompt voice calls; not chat sessions",
+    "current agent-server entrypoint integration checks for single_prompt inbound and outbound voice calls; not chat sessions",
   );
   assert.equal(
     preflight.contract_boundary.agent_schema.authority,
     "authoritative for API request fields and accepted values",
   );
   assert.equal(preflight.contract_boundary.deployed_behavior, "not_verified");
-  assert.equal(preflight.contract_boundary.runtime_preflight, "agent-server source-code behavior");
+  assert.equal(
+    preflight.contract_boundary.runtime_preflight,
+    "current agent-server entrypoint integration checks; not an inherent provider limitation",
+  );
+  assert.equal(preflight.contract_boundary.provider_capability, "not_assessed");
   assert.equal(preflight.shared.agent_type, "single_prompt");
+  assert.deepEqual(preflight.shared.runtime_types, ["gpt_live", "grok_voice", "gemini_live"]);
   assert.deepEqual(preflight.shared.interruption, {
     field: "data.speech.isAllowInterruption",
     required_effective_value: true,

@@ -161,20 +161,13 @@ CLI `agent version save`는 현재 `head_revision`과 Flow이면 `flow_revision`
 version 또는 `null`을 `expected_production_version`으로 전달한다. public MCP에는
 버전 create/publish/restore 도구가 없고 CLI에는 version restore/duplicate 명령이 없다.
 
-**교체 단위를 구분하는 것이 핵심이다** — object sub-schema(`prompt`, `llm`, `voice` 등)는 한 단계 병합된다. 보낸 key 만 바뀌고 생략한 key 는 유지되며, 그 안의 nested object 는 통째로 바뀐다. 단 `llm` 은 `model`, `voice` 는 `id`·`provider` 를 함께 보내야 한다. 반면 `builtInTools`·`toolIds`·`presetDynamicVariables`·`manuals` 는 통째로 교체된다. `builtInTools`에 `end_call` 하나만 넣으면 기존 도구가 전부 사라질 수 있다. 기존 도구 객체를 schema 기본값으로 다시 만들면 전환 대상, SMS 발신/본문 설정, DTMF interrupt, 종료 도구 실행 중 발화 같은 tool-level 설정도 사라진다. 반드시 `get_agent()`로 현재 값을 읽고, 수정 후 보존할 항목을 함께 다시 보내라.
-
 single_prompt native live 전환:
 
 - pipeline → native live: provider `runtime`을 명시하고 기존 `data.llm`을 유지한다. `runtime`을 생략한 PATCH는 전환이 아니다.
 - native live → pipeline: `runtime: {"type": "pipeline"}`과 pipeline용 `stt`, `voice`를 명시한다. `runtime.voice`에서 pipeline 음성을 추측하지 않는다.
 - native live 수정: `data.stt`/`data.voice`가 `null`이거나 응답에서 생략될 수 있으므로 `runtime`을 기준으로 round-trip을 확인한다.
 
-**병합 범위를 구분한다.** `data`에서 생략한 top-level 설정은 기존 값을 유지하고,
-일반 객체는 한 단계 병합하며 배열은 전체 교체한다. `runtime`, `manuals`,
-`presetDynamicVariables`는 보내면 전체 값을 원자적으로 교체한다. `builtInTools`도 배열
-전체 교체 방식이므로 `end_call` 하나만 보내면 기존 도구가 모두 사라진다. 현재
-`runtime`/manual 맵/도구 배열을 보존해야 하면 `get_agent`에서 읽고
-의도한 전체 subtree를 보낸다. API나 CLI revision 충돌을 자동 재시도로 덮어쓰지 않는다.
+**병합 규칙을 구분한다.** `data`에서 생략한 top-level 설정은 기존 값을 유지한다. 일반 객체(`prompt`, `llm`, `voice` 등)는 한 단계 병합되어 보낸 key만 바뀌고 생략한 sibling은 유지되지만, 그 안의 nested object는 통째로 교체된다. `llm`은 `model`, `voice`는 `id`와 `provider`를 함께 보낸다. 배열은 전체 교체되고 `runtime`, `manuals`, `presetDynamicVariables`도 원자적으로 전체 교체된다. `builtInTools`나 `toolIds`를 보낼 때는 배열 전체를 보존해야 하며, `builtInTools`에 `end_call` 하나만 보내면 기존 도구가 전부 사라질 수 있다. 현재 도구 객체를 schema 기본값으로 다시 만들면 transfer 목적지, SMS 발신/본문 설정, DTMF interrupt, tool 실행 중 발화 같은 설정도 사라질 수 있다. 전체 교체되는 값을 보존해야 하면 `get_agent`로 현재 값을 읽어 의도한 subtree 전체를 다시 보낸다.
 
 ## 실전 예시
 
