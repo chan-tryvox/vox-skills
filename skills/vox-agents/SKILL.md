@@ -2,7 +2,6 @@
 name: vox-agents
 description: "Use whenever the user is building or diagnosing a vox.ai prompt-based (`single_prompt`) voice agent — including its system prompt, optional Manuals (Trigger/content/linked chains), agent.data, pipeline or native live runtime behavior, and runtime transitions. Manuals are a feature of prompt-based agents, not a separate agent type. For `flow` agent design, use vox-flow instead. Trigger on '프롬프트 작성해줘', '매뉴얼 만들어줘', '프롬프트 고쳐줘', 'GPT-Live', 'Grok Voice', 'Gemini Live', 'gpt_live', 'grok_voice', 'gemini_live', '실시간 음성 런타임', '에이전트가 이상하게 답해', '음성 에이전트', or any vox prompt-agent authoring question."
 license: MIT
-compatibility: "Requires the vox MCP server (https://mcp.tryvox.co/mcp, OAuth login on first tool call), registered by the vox-ai plugin. Works in Claude Code, Codex, and any agentskills.io-compatible client; the vox CLI bundles the same skill offline."
 ---
 
 # vox-agents
@@ -62,24 +61,18 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 
 ## Native live runtime contract
 
-When the user selects GPT-Live, Grok Voice, or Gemini Live, use this contract
-and read `references/gpt-live-agent-data.json` before assembling a payload:
+For GPT-Live, Grok Voice, or Gemini Live, read
+[`references/gpt-live-agent-data.json`](references/gpt-live-agent-data.json) before
+authoring `data.runtime`. All three runtimes are limited to `single_prompt` agents and
+require effective `data.speech.isAllowInterruption: true`. Keep `data.llm` as the
+separate text/business LLM; do not map it to `runtime.model` or invent an automatic chat
+fallback.
 
-- The current runtime types are `gpt_live`, `grok_voice`, and `gemini_live`. All support `single_prompt` agents only. Keep Flow agents on `pipeline`; do not convert or migrate them.
-- On create, absent `data.runtime` or `{ "type": "pipeline" }` keeps the existing pipeline behavior. On PATCH/update, an omitted `runtime` preserves the current mode.
-- When a native runtime is present, its provider model and voice must be explicit. Grok Voice uses `grok-voice-think-fast-2.0` with lowercase builtin IDs from `builtin_voice_catalogs.grok_voice.names`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025` with case-sensitive builtin IDs from `builtin_voice_catalogs.gemini_live.names`. The exact lists are in `references/gpt-live-agent-data.json` and the live agent schema. Gemini 3.1 and 3.8 are not supported by this contract.
-- GPT-Live uses model `gpt-live-1`; it accepts builtin voices and an organization-approved custom reference. Grok Voice and Gemini Live require `{ "type": "builtin", "name": "..." }` and reject `custom`.
-- Keep `data.llm` as the selectable text LLM for shared chat and live business work in `single_prompt`. Do not invent `chatLlm` or map `data.llm` implicitly to Luna or another model. For a new native live create, require `data.llm.model`; select it from `list_llm_models`.
-- Put native live voice configuration in `data.runtime.voice`, never in pipeline `data.voice` or a TTS-only field. Do not include legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked incompatible by the current schema; do not delete or copy the whole `data.speech` object by guesswork. Inherited pipeline defaults are removed after effective merge.
-- Grok Voice and Gemini Live require effective `data.speech.isAllowInterruption: true`. Create omission uses the `true` default, but PATCH omission preserves the existing value. If a pipeline agent currently stores `false`, explicitly send `true` when switching to either provider; `false` is rejected and never silently rewritten. GPT-Live behavior is unchanged.
-- A pipeline-to-live update retains the existing `data.llm` unless explicitly changed. A live-to-pipeline update must explicitly provide pipeline `stt` and `voice`; never infer them from `runtime.voice`.
-- Reads may return `data.stt` or `data.voice` as `null` or omit them for any native live runtime. Check `data.runtime` first and do not treat absent legacy fields as a migration failure.
-- GPT-Live custom references do not provision voices or grant authorization; validate provider access and voice quality separately. Existing pipeline voice settings remain unchanged and are not migrated.
-- When editing an existing Flow, preserve `flow.nodes[].data.llm`; treat it as a legacy Flow setting, not a native live feature. Do not add a native live runtime to Flow or rewrite node LLMs to a native live model.
-
-Keep this contract separate from API-generated OpenAPI artifacts. Use the API-owned schema
-generation pipeline for schema changes; do not invent or hand-edit generated schema in this
-skill.
+The reference records provider values and agent-server voice-call preflight constraints.
+The current `agent-schema` remains authoritative for API fields and accepted values; the
+preflight is source-code behavior, not evidence of deployed runtime or provider quality.
+Do not silently remove or rewrite a requested setting to satisfy a preflight constraint:
+surface the conflict and let the user choose the change.
 
 ## Workflow
 

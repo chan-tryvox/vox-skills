@@ -130,3 +130,43 @@ test("agent data teaches the agent-owned manuals map, not retired manualIds", ()
   assert.match(dataReference, /맵 전체가 교체된다/);
   assert.match(read("skills/vox-agents/SKILL.md"), /Do not use .*vox agent attach manual/);
 });
+
+test("native live reference separates schema, call preflight, and deployment evidence", () => {
+  const sourcePath = "skills/vox-agents/references/gpt-live-agent-data.json";
+  const sourceText = read(sourcePath);
+  const source = JSON.parse(sourceText);
+  const bundled = read(`plugins/vox-ai/${sourcePath}`);
+  const preflight = source.voice_call_preflight;
+
+  assert.equal(bundled, sourceText, "native live reference must match the plugin bundle");
+  assert.equal(
+    preflight.scope,
+    "agent-server source-code checks for single_prompt voice calls; not chat sessions",
+  );
+  assert.equal(
+    preflight.contract_boundary.agent_schema.authority,
+    "authoritative for API request fields and accepted values",
+  );
+  assert.equal(preflight.contract_boundary.deployed_behavior, "not_verified");
+  assert.equal(preflight.contract_boundary.runtime_preflight, "agent-server source-code behavior");
+  assert.equal(preflight.shared.agent_type, "single_prompt");
+  assert.deepEqual(preflight.shared.interruption, {
+    field: "data.speech.isAllowInterruption",
+    required_effective_value: true,
+  });
+  assert.deepEqual(
+    preflight.rejected_for_gpt_live_and_gemini_live.map(({ setting }) => setting),
+    [
+      "effective callSettings.callScreening",
+      "any transfer_call operator destination",
+      "speakDuringExecution.messages",
+      "warmTransferStaticSentence",
+      "warmTransferPrompt",
+    ],
+  );
+  assert.match(preflight.rejected_for_gpt_live_and_gemini_live[1].when, /mixed phone\/SIP\/operator/);
+  assert.match(preflight.rejected_for_gpt_live_and_gemini_live[4].when, /even when the prompt is empty/);
+  assert.match(preflight.grok_voice.these_gpt_gemini_preflight_checks, /not_applied/);
+  assert.match(preflight.authoring_action, /Do not silently remove or rewrite/);
+  assert.match(read("skills/vox-agents/SKILL.md"), /not evidence of deployed runtime or provider quality/);
+});

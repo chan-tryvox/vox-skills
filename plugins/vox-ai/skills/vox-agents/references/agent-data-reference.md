@@ -45,21 +45,19 @@ schema endpoint 결과를 따른다. 기존 pipeline payload 에서는 `prompt`,
 
 ### runtime (native live)
 
-When the user selects GPT-Live, Grok Voice, or Gemini Live, use the contract
-below and the accompanying [gpt-live-agent-data.json](gpt-live-agent-data.json)
-examples. The current agent schema remains authoritative for field presence
-and validation.
+Native live runtime values belong in `data.runtime`; pipeline STT/TTS settings do not
+configure their speech session. For provider IDs, create/update transitions, readback
+behavior, and voice-call preflight limits, use
+[gpt-live-agent-data.json](gpt-live-agent-data.json). That reference is authoring guidance,
+not the API schema: `get_schema(namespace="agent-schema", ...)` remains authoritative
+for request shape and current accepted values.
 
-- The supported types are `gpt_live`, `grok_voice`, and `gemini_live`. All are `single_prompt`-only. Existing Flow agents stay on `pipeline`; do not convert or migrate them.
-- On create, absent `runtime` or `{ "type": "pipeline" }` keeps pipeline behavior. On update, omitted `runtime` preserves the current mode.
-- Each native live runtime requires an explicit model and builtin voice. Grok Voice uses `grok-voice-think-fast-2.0`; Gemini Live uses `gemini-2.5-flash-native-audio-preview-12-2025`. Exact provider voice IDs and casing are listed in `gpt-live-agent-data.json` and the current schema. Gemini 3.1 and 3.8 are outside this contract.
-- GPT-Live uses `gpt-live-1` and supports builtin voice names such as `marin`. It may also accept an organization-approved custom reference `{ "type": "custom", "id": "voice_..." }`. Grok Voice and Gemini Live require `{ "type": "builtin", "name": ... }` and reject `custom`.
-- `data.llm` remains the selectable text LLM for shared chat and live business work in `single_prompt`. Every new native live create requires `data.llm.model` from `list_llm_models`; do not invent `chatLlm` or implicitly map `data.llm` to another model.
-- Put native live voice configuration in `runtime.voice`, not pipeline `data.voice` or a TTS-only field. Do not send legacy `stt`, `voice`, `parallelSTT`, `sttPreference`, `voicePreference`, or speech preferences marked incompatible by the current schema. Do not delete the whole `data.speech` object by guesswork.
-- A pipeline-to-live update retains existing `data.llm` unless explicitly changed. A live-to-pipeline update explicitly supplies pipeline `stt` and `voice`; never infer them from `runtime.voice`.
-- Native live reads may omit `stt`/`voice` or return them as `null`. Check `runtime` first.
-- GPT-Live custom references do not provision a voice or grant authorization; confirm provider access and quality separately. Existing pipeline voice settings remain unchanged and are not migrated.
-- When editing an existing Flow, preserve `flow.nodes[].data.llm`; it is a legacy Flow setting, not a native live feature. Do not add a native live runtime to Flow or rewrite node LLMs to a native live model.
+All three runtimes are `single_prompt`-only and require effective
+`data.speech.isAllowInterruption: true`. Keep `data.llm` as the separate text/business
+LLM; never substitute the native `runtime.model` or invent an automatic chat fallback.
+Do not copy pipeline `stt`, `voice`, or `parallelSTT` settings into a native runtime, and
+do not infer pipeline settings from `runtime.voice` when switching back. Native reads may
+omit legacy `stt`/`voice` fields or return them as `null`.
 
 ### postCall
 
@@ -93,7 +91,7 @@ and validation.
 ### speech
 
 - `isAllowInterruption`: 사용자가 에이전트 발화 중 끊을 수 있는지. 기본 `true`.
-- Grok Voice/Gemini Live는 유효한 값이 `true`여야 한다. 생성에서 생략하면 기본 `true`; PATCH에서 생략하면 현재 값을 유지한다. 기존 `false`에서 해당 런타임으로 전환할 때는 `true`를 명시한다. API는 `false`를 거부하며 자동으로 바꾸지 않는다. GPT-Live에는 이 제한이 없다.
+- GPT-Live, Grok Voice, Gemini Live는 모두 유효한 값이 `true`여야 한다. 생성에서 생략하면 기본 `true`; PATCH에서 생략하면 현재 값을 유지한다. 기존 `false`에서 native runtime으로 전환할 때는 `true`를 명시한다. Agent-server는 `false`를 거부하며 자동으로 바꾸지 않는다.
 - `isAllowTurnDetection`: 턴 감지 활성화. 기본 `true`.
 - `responsiveness`: 0.0~1.0. 높을수록 빠르게 응답 시작. 기본 1.0 (최댓값).
 - `responsiveness` 는 latency 에 직접 영향을 주는 production default 다. 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하고, 자연스러움/안정성 개선을 추측해 `0.8` / `0.9` 로 낮추지 않는다.
@@ -140,7 +138,7 @@ get_schema(namespace="tool-schema", schema_type="<built-in-tool-schema>")
 - `flow` agent 를 실사용 가능한 상태로 만들 때는 public `flow` 를 함께 보낸다. `flow_data` 는 legacy graph 이므로 새 작성에는 쓰지 않는다. 단순 shell agent 생성 여부는 API/MCP contract 를 확인한다.
 - flow graph 만 만들거나 검증하는 작업이면 `data` 를 생략한다. schema 에 보이는 기본값을 복사하려고 `stt.speed`, `llm`, `voice`, `speech` 를 채우지 않는다.
 - `data` 를 작성하기 전에 `get_schema(namespace="agent-schema", schema_type="agent-data-create")` 를 호출한다.
-- Native live를 새로 만들 때는 `type: "single_prompt"`, `data.runtime`, `data.llm.model`을 반드시 포함한다. Flow는 `pipeline`을 유지한다. Grok Voice와 Gemini Live는 schema에 있는 `builtin` voice만 받는다. OpenAI `custom`은 새 GPT-Live 음성용 참조이며, 기존 pipeline 음성은 그대로 유지하고 마이그레이션하지 않는다. pipeline용 `stt`/`voice`/`parallelSTT`/`sttPreference`/`voicePreference`와 호환되지 않는 legacy speech preference를 같은 입력에 복사하지 않는다.
+- Native live를 만들거나 전환할 때는 `type: "single_prompt"`과 `data.runtime`을 사용하고, 현재 schema/catalog에 맞는 별도 text `data.llm`을 유지한다. Provider voice 값, create/update 전환 동작, GPT/Gemini voice-call preflight 제약은 `gpt-live-agent-data.json`을 따른다. Flow는 `pipeline`을 유지한다. pipeline용 `stt`/`voice`/`parallelSTT`와 호환되지 않는 legacy speech preference를 native 입력에 복사하지 않는다.
 
 ### update_agent
 

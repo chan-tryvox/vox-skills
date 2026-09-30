@@ -1,5 +1,5 @@
 {
-  "_note": "Illustrative native live shapes. Read the current agent schema and text LLM catalog before sending a request. Provider model IDs and builtin voice IDs below are the supported contract; examples are not implicit defaults.",
+  "_note": "Illustrative native live shapes. Read the current agent schema and text LLM catalog before sending a request. Provider model IDs and builtin voice IDs below reflect the current source contract; examples are not implicit defaults or deployment evidence.",
   "create_single_prompt": {
     "name": "업무 상담 에이전트",
     "type": "single_prompt",
@@ -83,19 +83,72 @@
       }
     }
   },
+  "voice_call_preflight": {
+    "scope": "agent-server source-code checks for single_prompt voice calls; not chat sessions",
+    "contract_boundary": {
+      "agent_schema": {
+        "authority": "authoritative for API request fields and accepted values",
+        "lookup": "get_schema(namespace=agent-schema, schema_type=agent-data-create|agent-data-update)"
+      },
+      "runtime_preflight": "agent-server source-code behavior",
+      "deployed_behavior": "not_verified",
+      "provider_quality": "not_verified"
+    },
+    "shared": {
+      "agent_type": "single_prompt",
+      "interruption": {
+        "field": "data.speech.isAllowInterruption",
+        "required_effective_value": true
+      },
+      "data.llm": "Keep the configured text/business LLM separate from runtime.model; do not invent chatLlm or an automatic chat fallback."
+    },
+    "rejected_for_gpt_live_and_gemini_live": [
+      {
+        "setting": "effective callSettings.callScreening",
+        "when": "non-null",
+        "reason": "The configured screening response requires speech output."
+      },
+      {
+        "setting": "any transfer_call operator destination",
+        "when": "an operator target appears anywhere in the configured transfer_call setup, including mixed phone/SIP/operator destinations, regardless of the selected destination or transfer mode",
+        "reason": "The runtime cannot play the required operator-transfer announcement."
+      },
+      {
+        "setting": "speakDuringExecution.messages",
+        "when": "enabled is true and messages contains at least one non-empty item",
+        "reason": "The configured scripted tool speech requires TTS."
+      },
+      {
+        "setting": "warmTransferStaticSentence",
+        "when": "a warm transfer uses static announcement mode and the sentence is non-blank",
+        "reason": "The configured warm-transfer announcement requires TTS."
+      },
+      {
+        "setting": "warmTransferPrompt",
+        "when": "a warm transfer uses dynamic announcement mode, even when the prompt is empty",
+        "reason": "Dynamic mode still generates a warm-transfer whisper using its default instructions when the prompt is empty."
+      }
+    ],
+    "grok_voice": {
+      "these_gpt_gemini_preflight_checks": "not_applied; retains the current call path",
+      "boundary": "This does not guarantee every TTS-dependent feature, call outcome, or voice quality."
+    },
+    "authoring_action": "Do not silently remove or rewrite a requested setting to pass these checks. Surface the conflict and ask which setting or runtime the user wants to change."
+  },
   "contract_notes": [
     "GPT-Live, Grok Voice, and Gemini Live are supported only for type=single_prompt; Flow agents remain on pipeline without implicit conversion or migration.",
     "On create, a missing runtime and runtime.type=pipeline preserve existing pipeline behavior; on update, an omitted runtime preserves the current mode.",
-    "Every new native live create requires data.llm.model for shared chat and delegated text reasoning; do not invent chatLlm or fallback models.",
     "Grok Voice requires grok-voice-think-fast-2.0 and Gemini Live requires gemini-2.5-flash-native-audio-preview-12-2025. Gemini 3.1 and 3.8 are outside this contract.",
-    "All native live writes require an explicit runtime model and voice shaped as {type: builtin, name: provider_voice_id}; no model or voice default is implied.",
+    "Every native runtime requires an explicit provider model and voice reference; GPT-Live uses model gpt-live-1 and accepts builtin or organization-authorized custom references, while Grok Voice and Gemini Live require builtin voices.",
     "Use only the exact IDs in builtin_voice_catalogs. Grok IDs are lowercase; Gemini IDs are case-sensitive. Grok and Gemini reject custom voice objects.",
-    "Grok Voice and Gemini Live reject custom voices. The GPT-Live custom reference applies only to GPT-Live, does not provision a voice or grant authorization, and requires separate provider access and quality validation.",
+    "A GPT-Live custom reference does not provision a voice or grant authorization; verify that the organization has approved and mapped the referenced voice. Existing pipeline voice settings are not migrated.",
     "Native live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked incompatible by the current schema; do not remove data.speech wholesale.",
+    "Keep data.llm as the selected text/business LLM, independent of runtime.model; do not infer or invent a chat fallback.",
     "The pipeline-to-live update keeps existing data.llm unless explicitly changed. The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
     "Native live reads may omit stt/voice or return them as null.",
-    "For Grok Voice and Gemini Live, effective data.speech.isAllowInterruption must be true. Create omission uses the true default; PATCH omission preserves the current value, so explicitly send true when switching from a stored false value. The API rejects false and does not force it to true; GPT-Live behavior is unchanged.",
+    "For all three native runtimes, effective data.speech.isAllowInterruption must be true. Create omission uses the true default; PATCH omission preserves the current value, so explicitly send true when switching from a stored false value. Agent-server rejects false and does not force it to true.",
     "Existing pipeline voice settings remain unchanged and are not migrated.",
-    "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a native live feature and must not be rewritten to a native live model."
+    "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a native live feature and must not be rewritten to a native live model.",
+    "Voice-call preflight checks are agent-server source-code constraints, not API-schema validation or deployment evidence; do not silently drop unsupported fields."
   ]
 }
