@@ -58,7 +58,7 @@ Flow 에이전트(multi-node)가 필요한 경우 → `vox-flow` 스킬로 hando
 5. **최소 변경 리팩터링** — 기존 프롬프트의 필수 섹션/도구 계약/변수/에러처리를 삭제하면 런타임 장애가 발생한다.
 6. **진단 → 리팩터링 핸드오프**: diagnosis에 `failure_modes`와 `change_requests`가 반드시 포함, revision은 `change_requests`를 근거로만 변경한다 — 근거 없는 재설계는 기존 동작을 깨뜨린다.
 7. **MCP 실행 주의** — 유저가 "적용/업데이트"를 명시했을 때만 실행. builtInTools/toolIds가 전체 교체 방식이라 실수로 실행하면 기존 설정이 날아간다. `agent-data-reference.md` 참조.
-8. **기본값은 서버가 채운다** — 기본값의 SSOT 는 api-server 이고, get_schema 는 shape 만 주고 기본 *값* 은 주지 않는다. 의도적으로 override 하지 않는 sub-schema(특히 `llm`, `voice`)는 보내지 말고 OMIT 해 서버 기본값을 적용한다. `llm.model`은 `list_llm_models`, pipeline `voice.id/provider/model`은 `list_voice_models`, native live `runtime.voice` 값은 현재 `agent-schema`에서 확인한다. shape 는 `get_schema(namespace="agent-schema", schema_type="agent-data-create" | "agent-data-update", detail="minimal")` 로 확인한다. 한국어 STT 는 `stt.languages:["ko"]` 를 사용하고 `ko-KR` 은 `voice.language` 에만 쓴다. `speech.responsiveness` 는 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하며, "자연스러움" 명목으로 `0.8` / `0.9` 로 낮추지 않는다.
+8. **기본값은 서버가 채운다** — 기본값의 SSOT 는 api-server 이고, get_schema 는 shape 만 주고 기본 *값* 은 주지 않는다. 의도적으로 override 하지 않는 sub-schema(특히 `llm`, `voice`)는 보내지 말고 OMIT 해 서버 기본값을 적용한다. `llm.model`은 `list_llm_models`, pipeline `voice.id/provider/model`은 `list_voice_models`, native conversation `runtime.voice` 값은 현재 `agent-schema`에서 확인한다. Native runtime의 optional top-level `data.voice`는 warm phone/SIP transfer whisper TTS 전용이며, 대화 음성을 지정하지 않는다. shape 는 `get_schema(namespace="agent-schema", schema_type="agent-data-create" | "agent-data-update", detail="minimal")` 로 확인한다. 한국어 STT 는 `stt.languages:["ko"]` 를 사용하고 `ko-KR` 은 `voice.language` 에만 쓴다. `speech.responsiveness` 는 사용자 요구나 기존 agent 설정이 없으면 `1.0` 을 유지하며, "자연스러움" 명목으로 `0.8` / `0.9` 로 낮추지 않는다.
 
 ## Native live runtime contract
 
@@ -75,12 +75,12 @@ preflight is source-code behavior, not evidence of deployed runtime or provider 
 Do not silently remove or rewrite a requested setting to satisfy a preflight constraint:
 surface the conflict and let the user choose the change.
 
-For an eligible warm phone/SIP transfer briefing, `transfer_call.whisperVoice` is the
-optional voice override using the existing `AgentVoice` schema. Dynamic mode uses the
-server's default summary prompt when `warmTransferPrompt` is empty or omitted; static
-mode skips the whisper when text is blank. If the briefing is eligible and
-`whisperVoice` is omitted, the runtime uses a transient OpenAI `tts-1`/`onyx` default;
-this does not configure or restore pipeline `data.voice`.
+For an eligible warm phone/SIP transfer briefing, optional top-level `data.voice` uses
+the existing `AgentVoice` schema for whisper TTS only. Native conversation audio stays
+under `data.runtime.voice`. Dynamic mode uses the server's default summary prompt when
+`warmTransferPrompt` is empty or omitted; static mode skips the whisper when text is
+blank. If the briefing is eligible and `data.voice` is omitted, the runtime uses a
+transient OpenAI `tts-1`/`onyx` default and does not persist a default voice object.
 
 ## Workflow
 

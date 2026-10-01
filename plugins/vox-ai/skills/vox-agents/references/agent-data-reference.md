@@ -55,16 +55,21 @@ for request shape and current accepted values.
 All three runtimes are `single_prompt`-only and require effective
 `data.speech.isAllowInterruption: true`. Keep `data.llm` as the separate text/business
 LLM; never substitute the native `runtime.model` or invent an automatic chat fallback.
-Do not copy pipeline `stt`, `voice`, or `parallelSTT` settings into a native runtime, and
-do not infer pipeline settings from `runtime.voice` when switching back. Native reads may
-omit legacy `stt`/`voice` fields or return them as `null`.
+Do not copy pipeline `stt` or `parallelSTT` settings into a native runtime. Keep the
+native conversation voice under `data.runtime.voice`; optional top-level `data.voice`
+uses the existing `AgentVoice` schema for warm-transfer whisper TTS only. Do not infer a
+pipeline voice from `runtime.voice` when switching back. Native reads may omit legacy
+`stt` or optional `data.voice` fields or return them as `null`; `data.voice: null` clears
+the optional whisper configuration on PATCH, while omission on PATCH preserves the
+current value. On create, omit `data.voice` for the transient default or provide an
+`AgentVoice` object; do not send `null`.
 
-An eligible warm phone/SIP `transfer_call` briefing may set the optional `whisperVoice`
-field using the existing `AgentVoice` schema. Dynamic mode uses the server default
-summary prompt when `warmTransferPrompt` is empty or omitted; static mode skips the
-whisper when text is blank. If `whisperVoice` is omitted, the eligible briefing uses a
-transient OpenAI `tts-1`/`onyx` default. This tool-scoped voice does not populate or
-restore top-level `data.voice`.
+An eligible warm phone/SIP `transfer_call` briefing may use top-level `data.voice` for
+whisper TTS. Dynamic mode uses the server default summary prompt when
+`warmTransferPrompt` is empty or omitted; static mode skips the whisper when text is
+blank. If `data.voice` is omitted, the eligible briefing uses a transient OpenAI
+`tts-1`/`onyx` default without storing a default voice. This does not change the native
+conversation voice under `data.runtime.voice`.
 
 ### postCall
 
@@ -145,7 +150,7 @@ get_schema(namespace="tool-schema", schema_type="<built-in-tool-schema>")
 - `flow` agent 를 실사용 가능한 상태로 만들 때는 public `flow` 를 함께 보낸다. `flow_data` 는 legacy graph 이므로 새 작성에는 쓰지 않는다. 단순 shell agent 생성 여부는 API/MCP contract 를 확인한다.
 - flow graph 만 만들거나 검증하는 작업이면 `data` 를 생략한다. schema 에 보이는 기본값을 복사하려고 `stt.speed`, `llm`, `voice`, `speech` 를 채우지 않는다.
 - `data` 를 작성하기 전에 `get_schema(namespace="agent-schema", schema_type="agent-data-create")` 를 호출한다.
-- Native live를 만들거나 전환할 때는 `type: "single_prompt"`과 `data.runtime`을 사용하고, 현재 schema/catalog에 맞는 별도 text `data.llm`을 유지한다. Provider voice 값, create/update 전환 동작, GPT/Gemini voice-call preflight 제약은 `gpt-live-agent-data.json`을 따른다. Flow는 `pipeline`을 유지한다. pipeline용 `stt`/`voice`/`parallelSTT`와 호환되지 않는 legacy speech preference를 native 입력에 복사하지 않는다.
+- Native live를 만들거나 전환할 때는 `type: "single_prompt"`과 `data.runtime`을 사용하고, 현재 schema/catalog에 맞는 별도 text `data.llm`을 유지한다. Provider voice 값, create/update 전환 동작, GPT/Gemini voice-call preflight 제약은 `gpt-live-agent-data.json`을 따른다. Flow는 `pipeline`을 유지한다. For native input, omit pipeline `stt`/`parallelSTT` and incompatible legacy speech preferences; optional top-level `data.voice` is only for warm-transfer whisper TTS, while native conversation voice stays at `data.runtime.voice`.
 
 ### update_agent
 
@@ -172,7 +177,7 @@ single_prompt native live 전환:
 
 - pipeline → native live: provider `runtime`을 명시하고 기존 `data.llm`을 유지한다. `runtime`을 생략한 PATCH는 전환이 아니다.
 - native live → pipeline: `runtime: {"type": "pipeline"}`과 pipeline용 `stt`, `voice`를 명시한다. `runtime.voice`에서 pipeline 음성을 추측하지 않는다.
-- native live 수정: `data.stt`/`data.voice`가 `null`이거나 응답에서 생략될 수 있으므로 `runtime`을 기준으로 round-trip을 확인한다.
+- native live 수정: `runtime`과 `runtime.voice`를 기준으로 round-trip을 확인한다. Native PATCH에서 `data.voice: null`은 optional whisper TTS 설정을 지우고, omission은 현재 값을 유지한다. On create, omit `data.voice` or provide an `AgentVoice` object; do not send null.
 
 **병합 규칙을 구분한다.** `data`에서 생략한 top-level 설정은 기존 값을 유지한다. 일반 객체(`prompt`, `llm`, `voice` 등)는 한 단계 병합되어 보낸 key만 바뀌고 생략한 sibling은 유지되지만, 그 안의 nested object는 통째로 교체된다. `llm`은 `model`, `voice`는 `id`와 `provider`를 함께 보낸다. 배열은 전체 교체되고 `runtime`, `manuals`, `presetDynamicVariables`도 원자적으로 전체 교체된다. `builtInTools`나 `toolIds`를 보낼 때는 배열 전체를 보존해야 하며, `builtInTools`에 `end_call` 하나만 보내면 기존 도구가 전부 사라질 수 있다. 현재 도구 객체를 schema 기본값으로 다시 만들면 transfer 목적지, SMS 발신/본문 설정, DTMF interrupt, tool 실행 중 발화 같은 설정도 사라질 수 있다. 전체 교체되는 값을 보존해야 하면 `get_agent`로 현재 값을 읽어 의도한 subtree 전체를 다시 보낸다.
 

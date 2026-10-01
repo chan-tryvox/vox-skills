@@ -122,9 +122,9 @@
       }
     ],
     "warm_transfer_whisper": {
-      "setting": "transfer_call.whisperVoice",
+      "setting": "data.voice",
       "schema": "existing AgentVoice",
-      "scope": "optional TTS voice for warm phone/SIP transfer briefings; it is not a pipeline agent voice",
+      "scope": "optional TTS voice for native warm phone/SIP transfer briefings only; native conversation audio remains under data.runtime.voice",
       "eligibility": {
         "transfer_type": "warm",
         "destination_transports": ["phone", "sip"],
@@ -139,7 +139,11 @@
         "uses_data_voice": false,
         "uses_runtime_voice": false
       },
-      "boundary": "This scoped transfer voice does not populate or restore top-level data.voice."
+      "write_semantics": {
+        "create": "Omit data.voice to use the transient default, or provide an AgentVoice object; null is not valid on create.",
+        "patch": "Omission preserves the current optional data.voice; null clears it."
+      },
+      "boundary": "When provided, top-level data.voice is used only for whisper TTS and never as native conversation voice. When omitted, the default does not persist data.voice."
     },
     "grok_voice": {
       "these_gpt_gemini_preflight_checks": "not_applied; retains the current call path",
@@ -154,12 +158,12 @@
     "Every native runtime requires an explicit provider model and voice reference; GPT-Live uses model gpt-live-1 and accepts builtin or organization-authorized custom references, while Grok Voice and Gemini Live require builtin voices.",
     "Use only the exact IDs in builtin_voice_catalogs. Grok IDs are lowercase; Gemini IDs are case-sensitive. Grok and Gemini reject custom voice objects.",
     "A GPT-Live custom reference does not provision a voice or grant authorization; verify that the organization has approved and mapped the referenced voice. Existing pipeline voice settings are not migrated.",
-    "Native live input omits legacy stt, data.voice, parallelSTT, and speech preferences marked incompatible by the current schema; do not remove data.speech wholesale.",
+    "Native live input omits legacy stt, parallelSTT, and speech preferences marked incompatible by the current schema; optional top-level data.voice is reserved for warm-transfer whisper TTS and native conversation voice remains under data.runtime.voice. Do not remove data.speech wholesale.",
     "Keep data.llm as the selected text/business LLM, independent of runtime.model; do not infer or invent a chat fallback.",
     "The pipeline-to-live update keeps existing data.llm unless explicitly changed. The live-to-pipeline update explicitly supplies stt and voice; it does not infer them from runtime.voice.",
-    "Native live reads may omit stt/voice or return them as null.",
+    "Native live reads may omit stt/optional data.voice or return them as null; runtime.voice is the native conversation voice.",
     "For all three native runtimes, effective data.speech.isAllowInterruption must be true. Create omission uses the true default; PATCH omission preserves the current value, so explicitly send true when switching from a stored false value. Agent-server rejects false and does not force it to true.",
-    "Existing pipeline voice settings remain unchanged and are not migrated.",
+    "Do not migrate pipeline data.voice into data.runtime.voice; on a native runtime, top-level data.voice is only an optional warm-transfer whisper TTS configuration.",
     "Existing Flow node LLM overrides remain under flow.nodes[].data.llm as legacy Flow settings; they are not a native live feature and must not be rewritten to a native live model.",
     "Voice-call preflight checks are current agent-server integration constraints, not API-schema validation, inherent provider limitations, or deployment evidence; do not silently drop unsupported fields."
   ]

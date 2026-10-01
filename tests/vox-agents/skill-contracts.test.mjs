@@ -168,8 +168,10 @@ test("native live reference separates schema, warm whisper preflight, and deploy
     ],
   );
   assert.match(preflight.rejected_for_gpt_live_and_gemini_live[1].when, /mixed phone\/SIP\/operator/);
-  assert.equal(preflight.warm_transfer_whisper.setting, "transfer_call.whisperVoice");
+  assert.equal(preflight.warm_transfer_whisper.setting, "data.voice");
   assert.equal(preflight.warm_transfer_whisper.schema, "existing AgentVoice");
+  assert.match(preflight.warm_transfer_whisper.scope, /warm phone\/SIP transfer briefings only/);
+  assert.match(preflight.warm_transfer_whisper.scope, /data\.runtime\.voice/);
   assert.deepEqual(preflight.warm_transfer_whisper.eligibility.destination_transports, ["phone", "sip"]);
   assert.match(preflight.warm_transfer_whisper.eligibility.static_mode, /non-blank/);
   assert.match(preflight.warm_transfer_whisper.eligibility.dynamic_mode, /empty or omitted/);
@@ -181,12 +183,19 @@ test("native live reference separates schema, warm whisper preflight, and deploy
     uses_data_voice: false,
     uses_runtime_voice: false,
   });
-  assert.match(preflight.warm_transfer_whisper.boundary, /does not populate or restore top-level data.voice/);
+  assert.deepEqual(preflight.warm_transfer_whisper.write_semantics, {
+    create: "Omit data.voice to use the transient default, or provide an AgentVoice object; null is not valid on create.",
+    patch: "Omission preserves the current optional data.voice; null clears it.",
+  });
+  assert.match(preflight.warm_transfer_whisper.boundary, /only for whisper TTS/);
+  assert.match(preflight.warm_transfer_whisper.boundary, /does not persist data.voice/);
   assert.match(preflight.grok_voice.these_gpt_gemini_preflight_checks, /not_applied/);
   assert.match(preflight.authoring_action, /Do not silently remove or rewrite/);
   assert.match(read("skills/vox-agents/SKILL.md"), /not evidence of deployed runtime or provider quality/);
-  assert.match(read("skills/vox-agents/SKILL.md"), /transfer_call\.whisperVoice/);
+  assert.match(read("skills/vox-agents/SKILL.md"), /optional top-level `data\.voice`/);
+  assert.doesNotMatch(sourceText, /transfer_call\.whisperVoice|WhisperVoiceConfig/);
   const dataReference = read("skills/vox-agents/references/agent-data-reference.md");
-  assert.match(dataReference, /does not populate or/);
-  assert.match(dataReference, /restore top-level `data\.voice`/);
+  assert.match(dataReference, /optional top-level `data\.voice`/);
+  assert.match(dataReference, /`data\.voice: null` clears/);
+  assert.match(dataReference, /data\.runtime\.voice/);
 });
