@@ -131,7 +131,7 @@ test("agent data teaches the agent-owned manuals map, not retired manualIds", ()
   assert.match(read("skills/vox-agents/SKILL.md"), /Do not use .*vox agent attach manual/);
 });
 
-test("native live reference separates schema, call preflight, and deployment evidence", () => {
+test("native live reference separates schema, warm whisper preflight, and deployment evidence", () => {
   const sourcePath = "skills/vox-agents/references/gpt-live-agent-data.json";
   const sourceText = read(sourcePath);
   const source = JSON.parse(sourceText);
@@ -165,13 +165,28 @@ test("native live reference separates schema, call preflight, and deployment evi
       "effective callSettings.callScreening",
       "any transfer_call operator destination",
       "speakDuringExecution.messages",
-      "warmTransferStaticSentence",
-      "warmTransferPrompt",
     ],
   );
   assert.match(preflight.rejected_for_gpt_live_and_gemini_live[1].when, /mixed phone\/SIP\/operator/);
-  assert.match(preflight.rejected_for_gpt_live_and_gemini_live[4].when, /even when the prompt is empty/);
+  assert.equal(preflight.warm_transfer_whisper.setting, "transfer_call.whisperVoice");
+  assert.equal(preflight.warm_transfer_whisper.schema, "existing AgentVoice");
+  assert.deepEqual(preflight.warm_transfer_whisper.eligibility.destination_transports, ["phone", "sip"]);
+  assert.match(preflight.warm_transfer_whisper.eligibility.static_mode, /non-blank/);
+  assert.match(preflight.warm_transfer_whisper.eligibility.dynamic_mode, /empty or omitted/);
+  assert.deepEqual(preflight.warm_transfer_whisper.default_voice_when_omitted, {
+    provider: "openai",
+    model: "tts-1",
+    id: "onyx",
+    lifetime: "transient; not stored in agent data",
+    uses_data_voice: false,
+    uses_runtime_voice: false,
+  });
+  assert.match(preflight.warm_transfer_whisper.boundary, /does not populate or restore top-level data.voice/);
   assert.match(preflight.grok_voice.these_gpt_gemini_preflight_checks, /not_applied/);
   assert.match(preflight.authoring_action, /Do not silently remove or rewrite/);
   assert.match(read("skills/vox-agents/SKILL.md"), /not evidence of deployed runtime or provider quality/);
+  assert.match(read("skills/vox-agents/SKILL.md"), /transfer_call\.whisperVoice/);
+  const dataReference = read("skills/vox-agents/references/agent-data-reference.md");
+  assert.match(dataReference, /does not populate or/);
+  assert.match(dataReference, /restore top-level `data\.voice`/);
 });

@@ -75,6 +75,13 @@ preflight is source-code behavior, not evidence of deployed runtime or provider 
 Do not silently remove or rewrite a requested setting to satisfy a preflight constraint:
 surface the conflict and let the user choose the change.
 
+For an eligible warm phone/SIP transfer briefing, `transfer_call.whisperVoice` is the
+optional voice override using the existing `AgentVoice` schema. Dynamic mode uses the
+server's default summary prompt when `warmTransferPrompt` is empty or omitted; static
+mode skips the whisper when text is blank. If the briefing is eligible and
+`whisperVoice` is omitted, the runtime uses a transient OpenAI `tts-1`/`onyx` default;
+this does not configure or restore pipeline `data.voice`.
+
 ## Workflow
 
 신규 작성:

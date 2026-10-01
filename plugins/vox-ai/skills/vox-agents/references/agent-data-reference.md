@@ -59,6 +59,13 @@ Do not copy pipeline `stt`, `voice`, or `parallelSTT` settings into a native run
 do not infer pipeline settings from `runtime.voice` when switching back. Native reads may
 omit legacy `stt`/`voice` fields or return them as `null`.
 
+An eligible warm phone/SIP `transfer_call` briefing may set the optional `whisperVoice`
+field using the existing `AgentVoice` schema. Dynamic mode uses the server default
+summary prompt when `warmTransferPrompt` is empty or omitted; static mode skips the
+whisper when text is blank. If `whisperVoice` is omitted, the eligible briefing uses a
+transient OpenAI `tts-1`/`onyx` default. This tool-scoped voice does not populate or
+restore top-level `data.voice`.
+
 ### postCall
 
 - `actions[]` 각 항목에 `type`, `name` 필수.

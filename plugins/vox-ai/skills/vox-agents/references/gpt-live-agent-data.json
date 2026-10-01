@@ -119,18 +119,28 @@
         "setting": "speakDuringExecution.messages",
         "when": "enabled is true and messages contains at least one non-empty item",
         "reason": "The current agent-server tool-speech path requires TTS, which this native integration does not provide."
-      },
-      {
-        "setting": "warmTransferStaticSentence",
-        "when": "a warm transfer uses static announcement mode and the sentence is non-blank",
-        "reason": "The current agent-server warm-transfer path requires TTS for this announcement."
-      },
-      {
-        "setting": "warmTransferPrompt",
-        "when": "a warm transfer uses dynamic announcement mode, even when the prompt is empty",
-        "reason": "The current agent-server warm-transfer path generates a whisper in dynamic mode, using default instructions when the prompt is empty; that path requires TTS."
       }
     ],
+    "warm_transfer_whisper": {
+      "setting": "transfer_call.whisperVoice",
+      "schema": "existing AgentVoice",
+      "scope": "optional TTS voice for warm phone/SIP transfer briefings; it is not a pipeline agent voice",
+      "eligibility": {
+        "transfer_type": "warm",
+        "destination_transports": ["phone", "sip"],
+        "static_mode": "A non-blank warmTransferStaticSentence is read; blank or missing text skips the static whisper.",
+        "dynamic_mode": "A briefing is generated even when warmTransferPrompt is empty or omitted; the server uses its default summary prompt."
+      },
+      "default_voice_when_omitted": {
+        "provider": "openai",
+        "model": "tts-1",
+        "id": "onyx",
+        "lifetime": "transient; not stored in agent data",
+        "uses_data_voice": false,
+        "uses_runtime_voice": false
+      },
+      "boundary": "This scoped transfer voice does not populate or restore top-level data.voice."
+    },
     "grok_voice": {
       "these_gpt_gemini_preflight_checks": "not_applied; retains the current call path",
       "boundary": "This does not guarantee every TTS-dependent feature, call outcome, or voice quality."
